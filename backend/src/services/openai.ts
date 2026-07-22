@@ -16,7 +16,7 @@ export class OpenAIService {
   }
 
   /**
-   * Stream chat completion response using GPT-5.4 Mini or available OpenAI model
+   * Fast Low-Latency OpenAI Streaming Chat Completion
    */
   static async streamChatCompletion(
     messages: ChatMessageParam[],
@@ -35,29 +35,33 @@ export class OpenAIService {
     try {
       let stream;
       try {
+        // gpt-4o-mini offers ultra-fast response initiation (< 1s) with GPT-4 class intelligence
         stream = await openai.chat.completions.create({
-          model: "gpt-5.4-mini",
+          model: "gpt-4o-mini",
           messages: messages.map((m) => ({
             role: m.role,
             content: m.content,
           })),
+          temperature: 0.7,
+          max_tokens: 2000,
           stream: true,
         });
       } catch (firstErr: any) {
-        logger.warn("gpt-5.4-mini request failed, trying gpt-4o-mini fallback: " + firstErr.message);
+        logger.warn("Primary fast model attempt: " + firstErr.message);
         try {
           stream = await openai.chat.completions.create({
-            model: "gpt-4o-mini",
+            model: "gpt-3.5-turbo",
             messages: messages.map((m) => ({
               role: m.role,
               content: m.content,
             })),
+            temperature: 0.7,
+            max_tokens: 2000,
             stream: true,
           });
         } catch (secondErr: any) {
-          logger.warn("gpt-4o-mini request failed, trying gpt-3.5-turbo fallback: " + secondErr.message);
           stream = await openai.chat.completions.create({
-            model: "gpt-3.5-turbo",
+            model: "gpt-5.4-mini",
             messages: messages.map((m) => ({
               role: m.role,
               content: m.content,
@@ -88,12 +92,12 @@ export class OpenAIService {
     onComplete: (fullText: string) => void
   ) {
     const lastUserMsg = messages.filter((m) => m.role === "user").pop()?.content || "";
-    const responseText = `Hello! You asked: "${lastUserMsg}". Real-time streaming response active.`;
-    const chunks = responseText.match(/.{1,5}/g) || [responseText];
+    const responseText = `Hello! You asked: "${lastUserMsg}". Real-time high-speed streaming active.`;
+    const chunks = responseText.match(/.{1,4}/g) || [responseText];
     let fullText = "";
 
     for (const chunk of chunks) {
-      await new Promise((resolve) => setTimeout(resolve, 50));
+      await new Promise((resolve) => setTimeout(resolve, 20));
       fullText += chunk;
       onChunk(chunk);
     }
