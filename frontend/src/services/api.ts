@@ -4,8 +4,8 @@ const rawBase = (import.meta as any).env?.VITE_API_BASE_URL || "";
 const API_BASE = rawBase ? `${rawBase.replace(/\/$/, "")}/api` : "/api";
 
 function getAuthHeader(): Record<string, string> {
-  const token = localStorage.getItem("token");
-  return token ? { Authorization: `Bearer ${token}` } : {};
+  const token = localStorage.getItem("token") || "guest-token";
+  return { Authorization: `Bearer ${token}` };
 }
 
 export async function sendOtpApi(email: string): Promise<{ message: string; devOtpCode?: string }> {
