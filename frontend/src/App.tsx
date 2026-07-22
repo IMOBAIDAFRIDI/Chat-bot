@@ -13,38 +13,28 @@ import { Header } from "./components/Header";
 import { Sidebar } from "./components/Sidebar";
 import { ChatMessage } from "./components/ChatMessage";
 import { ChatInput } from "./components/ChatInput";
-import { AuthModal } from "./components/AuthModal";
-import { useAuth } from "./context/AuthContext";
 
 export const AppContent: React.FC = () => {
-  const { user } = useAuth();
   const [chats, setChats] = useState<Chat[]>([]);
   const [activeChatId, setActiveChatId] = useState<string | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
   const [isStreaming, setIsStreaming] = useState(false);
   const [streamingText, setStreamingText] = useState("");
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [authModalOpen, setAuthModalOpen] = useState(false);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
 
-  // Load chat sessions when user/token changes
+  // Load chat sessions immediately for instant access
   useEffect(() => {
     async function loadChats() {
-      if (!user) {
-        setChats([]);
-        setActiveChatId(null);
-        setMessages([]);
-        return;
-      }
       try {
         const fetchedChats = await fetchChatsApi();
         setChats(fetchedChats);
         if (fetchedChats.length > 0) {
           setActiveChatId(fetchedChats[0].id);
         } else {
-          // Auto create initial chat session
+          // Auto create initial chat session for instant access
           const newChat = await createChatApi("New Chat");
           setChats([newChat]);
           setActiveChatId(newChat.id);
@@ -54,12 +44,12 @@ export const AppContent: React.FC = () => {
       }
     }
     loadChats();
-  }, [user]);
+  }, []);
 
   // Load messages for active chat session
   useEffect(() => {
     async function loadMessages() {
-      if (!activeChatId || !user) {
+      if (!activeChatId) {
         setMessages([]);
         return;
       }
@@ -71,7 +61,7 @@ export const AppContent: React.FC = () => {
       }
     }
     loadMessages();
-  }, [activeChatId, user]);
+  }, [activeChatId]);
 
   // Auto scroll to latest message
   useEffect(() => {
@@ -79,10 +69,6 @@ export const AppContent: React.FC = () => {
   }, [messages, streamingText]);
 
   const handleNewChat = async () => {
-    if (!user) {
-      setAuthModalOpen(true);
-      return;
-    }
     try {
       const newChat = await createChatApi("New Chat");
       setChats((prev) => [newChat, ...prev]);
@@ -120,11 +106,6 @@ export const AppContent: React.FC = () => {
   };
 
   const handleSendMessage = async (content: string) => {
-    if (!user) {
-      setAuthModalOpen(true);
-      return;
-    }
-
     let targetChatId = activeChatId;
     if (!targetChatId) {
       const created = await createChatApi("New Chat");
@@ -220,44 +201,21 @@ export const AppContent: React.FC = () => {
 
       {/* Main View Area */}
       <div className="flex flex-1 flex-col min-w-0 h-full">
-        <Header
-          onToggleSidebar={() => setSidebarOpen((prev) => !prev)}
-          onOpenAuthModal={() => setAuthModalOpen(true)}
-        />
+        <Header onToggleSidebar={() => setSidebarOpen((prev) => !prev)} />
 
         {/* Message Feed */}
         <main className="flex-1 overflow-y-auto">
-          {!user ? (
-            /* Unauthenticated Banner */
-            <div className="flex h-full flex-col items-center justify-center p-6 text-center">
-              <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-chat-accent/10 text-chat-accent mb-4 shadow-inner">
-                <Bot className="h-8 w-8" />
-              </div>
-              <h1 className="text-2xl md:text-3xl font-bold text-slate-900 dark:text-slate-100">
-                Welcome to GPT-5.4 Mini Chatbot
-              </h1>
-              <p className="mt-2 max-w-md text-sm text-slate-500">
-                Experience real-time AI streaming, Markdown code highlighting, and multi-session conversation history.
-              </p>
-              <button
-                onClick={() => setAuthModalOpen(true)}
-                className="mt-6 flex items-center gap-2 rounded-xl bg-chat-accent hover:bg-chat-accentHover text-white px-6 py-3 font-semibold text-sm transition-all shadow-lg active:scale-95"
-              >
-                <Sparkles className="h-4 w-4" />
-                <span>Sign In or Use Demo Mode</span>
-              </button>
-            </div>
-          ) : messages.length === 0 && !isStreaming ? (
+          {messages.length === 0 && !isStreaming ? (
             /* Empty State Hero Prompt Grid */
             <div className="flex h-full flex-col items-center justify-center px-4 py-8 text-center">
               <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-chat-accent text-white shadow-lg mb-4">
                 <Bot className="h-7 w-7" />
               </div>
-              <h2 className="text-2xl font-bold text-slate-900 dark:text-slate-100">
+              <h2 className="text-2xl md:text-3xl font-bold text-slate-900 dark:text-slate-100">
                 How can I help you today?
               </h2>
-              <p className="mt-1 text-sm text-slate-500 max-w-md">
-                Powered by OpenAI GPT-5.4 Mini with real-time response streaming and persistent session memory.
+              <p className="mt-2 text-sm text-slate-500 max-w-md">
+                Powered by OpenAI GPT-5.4 Mini with 100% accurate reasoning, Markdown code formatting, and real-time streaming.
               </p>
 
               <div className="mt-8 grid grid-cols-1 sm:grid-cols-2 gap-3 w-full max-w-2xl">
@@ -325,20 +283,14 @@ export const AppContent: React.FC = () => {
           )}
         </main>
 
-        {/* Input Bar */}
+        {/* Input Bar - Instant Messaging enabled */}
         <ChatInput
           onSend={handleSendMessage}
           onStop={handleStopStreaming}
           isStreaming={isStreaming}
-          disabled={!user}
+          disabled={false}
         />
       </div>
-
-      {/* Auth Modal */}
-      <AuthModal
-        isOpen={authModalOpen}
-        onClose={() => setAuthModalOpen(false)}
-      />
     </div>
   );
 };

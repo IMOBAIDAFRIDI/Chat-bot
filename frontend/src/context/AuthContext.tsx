@@ -1,26 +1,32 @@
 import React, { createContext, useContext, useEffect, useState } from "react";
 import { User } from "../types";
-import { getProfileApi, sendOtpApi, verifyOtpApi } from "../services/api";
+import { getProfileApi } from "../services/api";
 
 interface AuthContextType {
   user: User | null;
   token: string | null;
   loading: boolean;
-  sendOtp: (email: string) => Promise<{ message: string; devOtpCode?: string }>;
-  verifyOtp: (email: string, code: string, name?: string) => Promise<void>;
   logout: () => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+const DEFAULT_GUEST_USER: User = {
+  id: "guest-user-id",
+  name: "Guest User",
+  email: "guest@local.user",
+};
+
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [user, setUser] = useState<User | null>(null);
-  const [token, setToken] = useState<string | null>(() => localStorage.getItem("token"));
-  const [loading, setLoading] = useState(true);
+  const [user, setUser] = useState<User | null>(DEFAULT_GUEST_USER);
+  const [token, setToken] = useState<string | null>(() => localStorage.getItem("token") || "guest-token");
+  const [loading, setLoading] = useState(false);
 
   useEffect(() => {
     async function loadUser() {
-      if (!token) {
+      const storedToken = localStorage.getItem("token");
+      if (!storedToken) {
+        setUser(DEFAULT_GUEST_USER);
         setLoading(false);
         return;
       }
@@ -28,9 +34,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         const profile = await getProfileApi();
         setUser(profile);
       } catch (err) {
-        console.warn("Failed to load user profile:", err);
-        localStorage.removeItem("token");
-        setToken(null);
+        setUser(DEFAULT_GUEST_USER);
       } finally {
         setLoading(false);
       }
@@ -38,25 +42,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     loadUser();
   }, [token]);
 
-  const sendOtp = async (email: string) => {
-    return await sendOtpApi(email);
-  };
-
-  const verifyOtp = async (email: string, code: string, name?: string) => {
-    const res = await verifyOtpApi(email, code, name);
-    localStorage.setItem("token", res.token);
-    setToken(res.token);
-    setUser(res.user);
-  };
-
   const logout = () => {
     localStorage.removeItem("token");
-    setToken(null);
-    setUser(null);
+    setToken("guest-token");
+    setUser(DEFAULT_GUEST_USER);
   };
 
   return (
-    <AuthContext.Provider value={{ user, token, loading, sendOtp, verifyOtp, logout }}>
+    <AuthContext.Provider value={{ user, token, loading, logout }}>
       {children}
     </AuthContext.Provider>
   );

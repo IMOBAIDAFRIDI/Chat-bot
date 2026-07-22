@@ -17,9 +17,27 @@ const sendMessageSchema = z.object({
   content: z.string().min(1, "Message content is required"),
 });
 
+// Helper to ensure user exists (including guest user)
+async function ensureUserExists(userId: string, email: string) {
+  const existing = await prisma.user.findUnique({ where: { id: userId } });
+  if (!existing) {
+    await prisma.user.create({
+      data: {
+        id: userId,
+        email,
+        name: "User",
+        isVerified: true,
+      },
+    });
+  }
+}
+
 export async function createChat(req: AuthenticatedRequest, res: Response, next: NextFunction) {
   try {
     const userId = req.user!.userId;
+    const email = req.user!.email;
+    await ensureUserExists(userId, email);
+
     const { title } = createChatSchema.parse(req.body);
 
     const chat = await prisma.chat.create({
@@ -38,6 +56,8 @@ export async function createChat(req: AuthenticatedRequest, res: Response, next:
 export async function getChats(req: AuthenticatedRequest, res: Response, next: NextFunction) {
   try {
     const userId = req.user!.userId;
+    const email = req.user!.email;
+    await ensureUserExists(userId, email);
 
     const chats = await prisma.chat.findMany({
       where: { userId },
@@ -131,6 +151,9 @@ export async function deleteChat(req: AuthenticatedRequest, res: Response, next:
 export async function streamMessage(req: AuthenticatedRequest, res: Response, next: NextFunction) {
   try {
     const userId = req.user!.userId;
+    const email = req.user!.email;
+    await ensureUserExists(userId, email);
+
     const { chatId } = req.params;
     const { content } = sendMessageSchema.parse(req.body);
 
@@ -170,11 +193,15 @@ export async function streamMessage(req: AuthenticatedRequest, res: Response, ne
       });
     }
 
-    // Build context history for OpenAI
+    // Expert System Prompt for ChatGPT level 100% accuracy & reasoning
     const messageHistory: ChatMessageParam[] = [
       {
         role: "system",
-        content: "You are a helpful, production-ready AI Assistant powered by GPT-5.4 Mini. Answer concisely, cleanly, and format responses with clean Markdown code blocks.",
+        content: `You are GPT-5.4 Mini, an advanced, highly intelligent, precise, and articulate AI assistant created by OpenAI.
+You provide exceptionally detailed, accurate, step-by-step, and correct answers.
+You excel at software engineering, programming, math, logic, complex reasoning, science, writing, and general knowledge.
+Always format code using clean, syntax-highlighted Markdown code blocks with exact language labels.
+Ensure 100% factual accuracy, clarity, and helpfulness matching or exceeding ChatGPT.`,
       },
       ...chat.messages.map((m) => ({
         role: m.role as "user" | "assistant" | "system",
