@@ -24,8 +24,8 @@ COPY --from=builder /app/dist ./dist
 COPY --from=builder /app/prisma ./prisma
 
 EXPOSE 5000
+EXPOSE 10000
 
-ENV PORT=5000
 ENV NODE_ENV=production
 ENV DATABASE_URL="file:./dev.db"
 
