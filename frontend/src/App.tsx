@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
-import { Bot, Sparkles, Code, Cpu, ShieldCheck } from "lucide-react";
+import { Bot, Sparkles, Code, Cpu, ShieldCheck, AlertCircle } from "lucide-react";
 import { Chat, Message } from "./types";
 import {
   createChatApi,
@@ -21,6 +21,7 @@ export const AppContent: React.FC = () => {
   const [isStreaming, setIsStreaming] = useState(false);
   const [streamingText, setStreamingText] = useState("");
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [errorNotice, setErrorNotice] = useState<string | null>(null);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
@@ -39,7 +40,7 @@ export const AppContent: React.FC = () => {
           setChats([newChat]);
           setActiveChatId(newChat.id);
         }
-      } catch (err) {
+      } catch (err: any) {
         console.error("Error loading chat list:", err);
       }
     }
@@ -56,7 +57,7 @@ export const AppContent: React.FC = () => {
       try {
         const msgs = await fetchMessagesApi(activeChatId);
         setMessages(msgs);
-      } catch (err) {
+      } catch (err: any) {
         console.error("Error loading messages:", err);
       }
     }
@@ -69,13 +70,14 @@ export const AppContent: React.FC = () => {
   }, [messages, streamingText]);
 
   const handleNewChat = async () => {
+    setErrorNotice(null);
     try {
       const newChat = await createChatApi("New Chat");
       setChats((prev) => [newChat, ...prev]);
       setActiveChatId(newChat.id);
       setMessages([]);
-    } catch (err) {
-      console.error("Failed to create new chat:", err);
+    } catch (err: any) {
+      setErrorNotice("Failed to create new chat session: " + (err.message || "Network Error"));
     }
   };
 
@@ -83,7 +85,7 @@ export const AppContent: React.FC = () => {
     try {
       const updated = await renameChatApi(id, newTitle);
       setChats((prev) => prev.map((c) => (c.id === id ? updated : c)));
-    } catch (err) {
+    } catch (err: any) {
       console.error("Failed to rename chat:", err);
     }
   };
@@ -100,18 +102,25 @@ export const AppContent: React.FC = () => {
           handleNewChat();
         }
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error("Failed to delete chat:", err);
     }
   };
 
   const handleSendMessage = async (content: string) => {
+    setErrorNotice(null);
     let targetChatId = activeChatId;
+
     if (!targetChatId) {
-      const created = await createChatApi("New Chat");
-      setChats((prev) => [created, ...prev]);
-      setActiveChatId(created.id);
-      targetChatId = created.id;
+      try {
+        const created = await createChatApi("New Chat");
+        setChats([created]);
+        setActiveChatId(created.id);
+        targetChatId = created.id;
+      } catch (err: any) {
+        setErrorNotice("Backend server is starting up. Please try again in 10 seconds.");
+        return;
+      }
     }
 
     // Append optimistic user message
@@ -157,6 +166,7 @@ export const AppContent: React.FC = () => {
         console.error("Streaming error:", errMessage);
         setIsStreaming(false);
         setStreamingText("");
+        setErrorNotice("Connection error: " + errMessage);
         abortControllerRef.current = null;
       },
       controller.signal
@@ -191,6 +201,7 @@ export const AppContent: React.FC = () => {
         onSelectChat={(id) => {
           setActiveChatId(id);
           setSidebarOpen(false);
+          setErrorNotice(null);
         }}
         onNewChat={handleNewChat}
         onRenameChat={handleRenameChat}
@@ -202,6 +213,22 @@ export const AppContent: React.FC = () => {
       {/* Main View Area */}
       <div className="flex flex-1 flex-col min-w-0 h-full">
         <Header onToggleSidebar={() => setSidebarOpen((prev) => !prev)} />
+
+        {/* Error Notice Banner */}
+        {errorNotice && (
+          <div className="mx-4 mt-2 flex items-center justify-between gap-2 rounded-xl bg-amber-500/10 border border-amber-500/30 p-3 text-xs text-amber-600 dark:text-amber-400">
+            <div className="flex items-center gap-2">
+              <AlertCircle className="h-4 w-4 flex-shrink-0" />
+              <span>{errorNotice}</span>
+            </div>
+            <button
+              onClick={() => setErrorNotice(null)}
+              className="text-amber-500 hover:text-amber-400 font-bold"
+            >
+              ✕
+            </button>
+          </div>
+        )}
 
         {/* Message Feed */}
         <main className="flex-1 overflow-y-auto">
