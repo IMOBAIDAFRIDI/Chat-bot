@@ -1,6 +1,6 @@
 import { Chat, Message, User } from "../types";
 
-const rawBase = import.meta.env.VITE_API_BASE_URL || "";
+const rawBase = (import.meta as any).env?.VITE_API_BASE_URL || "";
 const API_BASE = rawBase ? `${rawBase.replace(/\/$/, "")}/api` : "/api";
 
 function getAuthHeader(): Record<string, string> {
