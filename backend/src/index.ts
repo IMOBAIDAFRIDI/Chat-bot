@@ -12,8 +12,16 @@ dotenv.config();
 const app = express();
 const PORT = Number(process.env.PORT) || 5000;
 
-// Middlewares
-app.use(cors({ origin: true, credentials: true }));
+// Enable Permissive CORS for Vercel Frontend & Browser Fetch/SSE
+app.use(
+  cors({
+    origin: "*",
+    methods: ["GET", "POST", "PATCH", "DELETE", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization"],
+  })
+);
+app.options("*", cors());
+
 app.use(express.json());
 app.use(morgan("dev"));
 
