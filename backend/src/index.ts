@@ -10,7 +10,7 @@ import { logger } from "./utils/logger";
 dotenv.config();
 
 const app = express();
-const PORT = process.env.PORT || 5000;
+const PORT = Number(process.env.PORT) || 5000;
 
 // Middlewares
 app.use(cors({ origin: true, credentials: true }));
@@ -29,6 +29,6 @@ app.use("/api/chats", chatRoutes);
 // Global Error Handler
 app.use(errorHandler);
 
-app.listen(PORT, () => {
+app.listen(PORT, "0.0.0.0", () => {
   logger.info(`Server running on port ${PORT} in ${process.env.NODE_ENV || "development"} mode`);
 });
