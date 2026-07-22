@@ -23,7 +23,7 @@ export const Header: React.FC<HeaderProps> = ({ onToggleSidebar }) => {
         {/* Model Badge */}
         <div className="flex items-center gap-2 rounded-full border border-chat-accent/30 bg-chat-accent/10 px-3 py-1 text-xs font-semibold text-chat-accent shadow-sm">
           <Sparkles className="h-3.5 w-3.5" />
-          <span>GPT-5.4 Mini Pro</span>
+          <span>Claude 3.5 Sonnet & GPT-5.4</span>
         </div>
       </div>
 
