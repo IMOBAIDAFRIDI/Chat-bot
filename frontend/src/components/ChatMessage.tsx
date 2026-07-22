@@ -40,7 +40,7 @@ export const ChatMessage: React.FC<ChatMessageProps> = ({ message, isStreaming =
         <div className="min-w-0 flex-1 space-y-2">
           <div className="flex items-center gap-2">
             <span className="font-semibold text-sm text-slate-800 dark:text-slate-200">
-              {isUser ? "You" : "GPT-5.4 Mini"}
+              {isUser ? "You" : "Claude 3.5 Sonnet"}
             </span>
             <span className="text-xs text-slate-400">
               {new Date(message.createdAt).toLocaleTimeString([], {
