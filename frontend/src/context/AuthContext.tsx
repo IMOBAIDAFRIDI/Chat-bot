@@ -1,13 +1,13 @@
 import React, { createContext, useContext, useEffect, useState } from "react";
 import { User } from "../types";
-import { getProfileApi, loginApi, signupApi } from "../services/api";
+import { getProfileApi, sendOtpApi, verifyOtpApi } from "../services/api";
 
 interface AuthContextType {
   user: User | null;
   token: string | null;
   loading: boolean;
-  login: (email: string, pass: string) => Promise<void>;
-  signup: (name: string, email: string, pass: string) => Promise<void>;
+  sendOtp: (email: string) => Promise<{ message: string; devOtpCode?: string }>;
+  verifyOtp: (email: string, code: string, name?: string) => Promise<void>;
   logout: () => void;
 }
 
@@ -38,15 +38,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     loadUser();
   }, [token]);
 
-  const login = async (email: string, pass: string) => {
-    const res = await loginApi(email, pass);
-    localStorage.setItem("token", res.token);
-    setToken(res.token);
-    setUser(res.user);
+  const sendOtp = async (email: string) => {
+    return await sendOtpApi(email);
   };
 
-  const signup = async (name: string, email: string, pass: string) => {
-    const res = await signupApi(name, email, pass);
+  const verifyOtp = async (email: string, code: string, name?: string) => {
+    const res = await verifyOtpApi(email, code, name);
     localStorage.setItem("token", res.token);
     setToken(res.token);
     setUser(res.user);
@@ -59,7 +56,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   return (
-    <AuthContext.Provider value={{ user, token, loading, login, signup, logout }}>
+    <AuthContext.Provider value={{ user, token, loading, sendOtp, verifyOtp, logout }}>
       {children}
     </AuthContext.Provider>
   );

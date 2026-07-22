@@ -8,25 +8,29 @@ function getAuthHeader(): Record<string, string> {
   return token ? { Authorization: `Bearer ${token}` } : {};
 }
 
-export async function loginApi(email: string, password: string): Promise<{ user: User; token: string }> {
-  const res = await fetch(`${API_BASE}/auth/login`, {
+export async function sendOtpApi(email: string): Promise<{ message: string; devOtpCode?: string }> {
+  const res = await fetch(`${API_BASE}/auth/send-otp`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ email, password }),
+    body: JSON.stringify({ email }),
   });
   const data = await res.json();
-  if (!res.ok) throw new Error(data.error || "Login failed");
+  if (!res.ok) throw new Error(data.error || "Failed to send verification code");
   return data;
 }
 
-export async function signupApi(name: string, email: string, password: string): Promise<{ user: User; token: string }> {
-  const res = await fetch(`${API_BASE}/auth/signup`, {
+export async function verifyOtpApi(
+  email: string,
+  code: string,
+  name?: string
+): Promise<{ user: User; token: string }> {
+  const res = await fetch(`${API_BASE}/auth/verify-otp`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ name, email, password }),
+    body: JSON.stringify({ email, code, name }),
   });
   const data = await res.json();
-  if (!res.ok) throw new Error(data.error || "Signup failed");
+  if (!res.ok) throw new Error(data.error || "Invalid or expired verification code");
   return data;
 }
 

@@ -1,62 +1,91 @@
 import { Request, Response, NextFunction } from "express";
-import bcrypt from "bcryptjs";
 import { z } from "zod";
 import { prisma } from "../services/prisma";
 import { generateToken } from "../utils/jwt";
 import { AuthenticatedRequest } from "../middleware/auth";
+import { EmailService } from "../services/email";
 
-const signupSchema = z.object({
-  name: z.string().min(2, "Name must be at least 2 characters"),
+const sendOtpSchema = z.object({
   email: z.string().email("Invalid email address"),
-  password: z.string().min(6, "Password must be at least 6 characters"),
 });
 
-const loginSchema = z.object({
+const verifyOtpSchema = z.object({
   email: z.string().email("Invalid email address"),
-  password: z.string().min(1, "Password is required"),
+  code: z.string().length(6, "OTP code must be 6 digits"),
+  name: z.string().optional(),
 });
 
-export async function signup(req: Request, res: Response, next: NextFunction) {
+export async function sendOtp(req: Request, res: Response, next: NextFunction) {
   try {
-    const { name, email, password } = signupSchema.parse(req.body);
+    const { email } = sendOtpSchema.parse(req.body);
 
-    const existingUser = await prisma.user.findUnique({ where: { email } });
-    if (existingUser) {
-      return res.status(400).json({ error: "User with this email already exists" });
-    }
+    // Generate 6-digit OTP code
+    const code = Math.floor(100000 + Math.random() * 900000).toString();
+    const expiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
 
-    const hashedPassword = await bcrypt.hash(password, 10);
-    const user = await prisma.user.create({
+    // Remove older OTPs for this email
+    await prisma.otpCode.deleteMany({ where: { email } });
+
+    // Save OTP to DB
+    await prisma.otpCode.create({
       data: {
-        name,
         email,
-        password: hashedPassword,
+        code,
+        expiresAt,
       },
     });
 
-    const token = generateToken({ userId: user.id, email: user.email });
+    // Send Email via SMTP
+    const sent = await EmailService.sendOtpEmail(email, code);
 
-    res.status(201).json({
-      user: { id: user.id, name: user.name, email: user.email },
-      token,
+    res.json({
+      message: sent
+        ? "Verification code sent to your Gmail address."
+        : "Verification code generated successfully.",
+      // Include code in response if SMTP is not configured yet for easy testing
+      ...(!sent && { devOtpCode: code }),
     });
   } catch (error) {
     next(error);
   }
 }
 
-export async function login(req: Request, res: Response, next: NextFunction) {
+export async function verifyOtp(req: Request, res: Response, next: NextFunction) {
   try {
-    const { email, password } = loginSchema.parse(req.body);
+    const { email, code, name } = verifyOtpSchema.parse(req.body);
 
-    const user = await prisma.user.findUnique({ where: { email } });
-    if (!user) {
-      return res.status(401).json({ error: "Invalid email or password" });
+    const otpRecord = await prisma.otpCode.findFirst({
+      where: {
+        email,
+        code,
+        expiresAt: { gt: new Date() },
+      },
+    });
+
+    if (!otpRecord) {
+      return res.status(400).json({ error: "Invalid or expired verification code" });
     }
 
-    const isMatch = await bcrypt.compare(password, user.password);
-    if (!isMatch) {
-      return res.status(401).json({ error: "Invalid email or password" });
+    // Delete used OTP
+    await prisma.otpCode.deleteMany({ where: { email } });
+
+    // Find or create user
+    let user = await prisma.user.findUnique({ where: { email } });
+
+    if (!user) {
+      const defaultName = name && name.trim() ? name.trim() : email.split("@")[0];
+      user = await prisma.user.create({
+        data: {
+          email,
+          name: defaultName,
+          isVerified: true,
+        },
+      });
+    } else if (!user.isVerified) {
+      user = await prisma.user.update({
+        where: { id: user.id },
+        data: { isVerified: true },
+      });
     }
 
     const token = generateToken({ userId: user.id, email: user.email });

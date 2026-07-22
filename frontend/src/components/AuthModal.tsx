@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { X, Lock, Mail, User as UserIcon } from "lucide-react";
+import { X, Mail, KeyRound, User as UserIcon, ArrowRight, CheckCircle2 } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 
 interface AuthModalProps {
@@ -8,54 +8,59 @@ interface AuthModalProps {
 }
 
 export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
-  const [isLoginTab, setIsLoginTab] = useState(true);
+  const [step, setStep] = useState<"email" | "otp">("email");
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
+  const [code, setCode] = useState("");
+  const [infoMsg, setInfoMsg] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
-  const { login, signup } = useAuth();
+  const { sendOtp, verifyOtp } = useAuth();
 
   if (!isOpen) return null;
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSendOtp = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
+    setInfoMsg("");
     setLoading(true);
 
     try {
-      if (isLoginTab) {
-        await login(email, password);
+      const res = await sendOtp(email);
+      setStep("otp");
+      if (res.devOtpCode) {
+        setInfoMsg(`Code sent! (Test OTP: ${res.devOtpCode})`);
       } else {
-        await signup(name, email, password);
+        setInfoMsg(`Verification code sent to ${email}`);
       }
-      onClose();
     } catch (err: any) {
-      setError(err.message || "Authentication failed");
+      setError(err.message || "Failed to send verification code");
     } finally {
       setLoading(false);
     }
   };
 
-  const handleDemoLogin = async () => {
+  const handleVerifyOtp = async (e: React.FormEvent) => {
+    e.preventDefault();
     setError("");
     setLoading(true);
+
     try {
-      // Automatic register/login demo account
-      const demoEmail = "demo@example.com";
-      const demoPass = "demo123456";
-      try {
-        await login(demoEmail, demoPass);
-      } catch {
-        await signup("Demo User", demoEmail, demoPass);
-      }
+      await verifyOtp(email, code, name);
       onClose();
     } catch (err: any) {
-      setError("Demo login failed: " + err.message);
+      setError(err.message || "Invalid verification code");
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleReset = () => {
+    setStep("email");
+    setCode("");
+    setError("");
+    setInfoMsg("");
   };
 
   return (
@@ -69,44 +74,18 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
           <X className="h-5 w-5" />
         </button>
 
-        {/* Tab Headers */}
-        <div className="flex border-b border-slate-200 dark:border-chat-border-dark bg-slate-50 dark:bg-slate-900/50">
-          <button
-            onClick={() => {
-              setIsLoginTab(true);
-              setError("");
-            }}
-            className={`flex-1 py-3.5 text-sm font-semibold transition-colors ${
-              isLoginTab
-                ? "border-b-2 border-chat-accent text-chat-accent bg-white dark:bg-chat-card-dark"
-                : "text-slate-500 hover:text-slate-800 dark:hover:text-slate-200"
-            }`}
-          >
-            Sign In
-          </button>
-          <button
-            onClick={() => {
-              setIsLoginTab(false);
-              setError("");
-            }}
-            className={`flex-1 py-3.5 text-sm font-semibold transition-colors ${
-              !isLoginTab
-                ? "border-b-2 border-chat-accent text-chat-accent bg-white dark:bg-chat-card-dark"
-                : "text-slate-500 hover:text-slate-800 dark:hover:text-slate-200"
-            }`}
-          >
-            Create Account
-          </button>
-        </div>
-
         <div className="p-6">
+          <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-chat-accent/10 text-chat-accent mb-4">
+            {step === "email" ? <Mail className="h-6 w-6" /> : <KeyRound className="h-6 w-6" />}
+          </div>
+
           <h2 className="text-xl font-bold text-slate-900 dark:text-slate-100">
-            {isLoginTab ? "Welcome back" : "Get started with GPT-5.4"}
+            {step === "email" ? "Sign in with Gmail" : "Enter Verification Code"}
           </h2>
           <p className="mt-1 text-xs text-slate-500">
-            {isLoginTab
-              ? "Sign in to access your chat history and custom preferences."
-              : "Register a free account to save your AI chats across devices."}
+            {step === "email"
+              ? "Enter your email address to receive a 6-digit verification code."
+              : `We sent a 6-digit code to ${email}`}
           </p>
 
           {error && (
@@ -115,17 +94,23 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
             </div>
           )}
 
-          <form onSubmit={handleSubmit} className="mt-4 space-y-4">
-            {!isLoginTab && (
+          {infoMsg && (
+            <div className="mt-4 flex items-center gap-2 rounded-lg bg-emerald-500/10 border border-emerald-500/30 p-3 text-xs text-emerald-600 dark:text-emerald-400">
+              <CheckCircle2 className="h-4 w-4 flex-shrink-0" />
+              <span>{infoMsg}</span>
+            </div>
+          )}
+
+          {step === "email" ? (
+            <form onSubmit={handleSendOtp} className="mt-5 space-y-4">
               <div>
                 <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">
-                  Full Name
+                  Full Name (Optional)
                 </label>
                 <div className="relative">
                   <UserIcon className="absolute left-3 top-3 h-4 w-4 text-slate-400" />
                   <input
                     type="text"
-                    required
                     value={name}
                     onChange={(e) => setName(e.target.value)}
                     placeholder="John Doe"
@@ -133,66 +118,71 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
                   />
                 </div>
               </div>
-            )}
 
-            <div>
-              <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">
-                Email Address
-              </label>
-              <div className="relative">
-                <Mail className="absolute left-3 top-3 h-4 w-4 text-slate-400" />
-                <input
-                  type="email"
-                  required
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  placeholder="name@example.com"
-                  className="w-full rounded-xl border border-slate-300 dark:border-chat-border-dark bg-slate-50 dark:bg-slate-900/50 py-2.5 pl-9 pr-3 text-sm text-slate-900 dark:text-slate-100 focus:border-chat-accent focus:outline-none"
-                />
+              <div>
+                <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">
+                  Gmail / Email Address
+                </label>
+                <div className="relative">
+                  <Mail className="absolute left-3 top-3 h-4 w-4 text-slate-400" />
+                  <input
+                    type="email"
+                    required
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    placeholder="name@gmail.com"
+                    className="w-full rounded-xl border border-slate-300 dark:border-chat-border-dark bg-slate-50 dark:bg-slate-900/50 py-2.5 pl-9 pr-3 text-sm text-slate-900 dark:text-slate-100 focus:border-chat-accent focus:outline-none"
+                  />
+                </div>
               </div>
-            </div>
 
-            <div>
-              <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">
-                Password
-              </label>
-              <div className="relative">
-                <Lock className="absolute left-3 top-3 h-4 w-4 text-slate-400" />
-                <input
-                  type="password"
-                  required
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  placeholder="••••••••"
-                  className="w-full rounded-xl border border-slate-300 dark:border-chat-border-dark bg-slate-50 dark:bg-slate-900/50 py-2.5 pl-9 pr-3 text-sm text-slate-900 dark:text-slate-100 focus:border-chat-accent focus:outline-none"
-                />
+              <button
+                type="submit"
+                disabled={loading}
+                className="flex items-center justify-center gap-2 w-full rounded-xl bg-chat-accent hover:bg-chat-accentHover text-white py-3 text-sm font-semibold transition-all shadow-md active:scale-98 disabled:opacity-50"
+              >
+                <span>{loading ? "Sending Code..." : "Send Verification Code"}</span>
+                <ArrowRight className="h-4 w-4" />
+              </button>
+            </form>
+          ) : (
+            <form onSubmit={handleVerifyOtp} className="mt-5 space-y-4">
+              <div>
+                <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">
+                  6-Digit Verification Code
+                </label>
+                <div className="relative">
+                  <KeyRound className="absolute left-3 top-3 h-4 w-4 text-slate-400" />
+                  <input
+                    type="text"
+                    required
+                    maxLength={6}
+                    value={code}
+                    onChange={(e) => setCode(e.target.value.trim())}
+                    placeholder="123456"
+                    className="w-full rounded-xl border border-slate-300 dark:border-chat-border-dark bg-slate-50 dark:bg-slate-900/50 py-2.5 pl-9 pr-3 font-mono text-center text-lg tracking-widest text-slate-900 dark:text-slate-100 focus:border-chat-accent focus:outline-none"
+                    autoFocus
+                  />
+                </div>
               </div>
-            </div>
 
-            <button
-              type="submit"
-              disabled={loading}
-              className="w-full rounded-xl bg-chat-accent hover:bg-chat-accentHover text-white py-3 text-sm font-semibold transition-all shadow-md active:scale-98 disabled:opacity-50"
-            >
-              {loading ? "Processing..." : isLoginTab ? "Sign In" : "Register"}
-            </button>
-          </form>
+              <button
+                type="submit"
+                disabled={loading || code.length !== 6}
+                className="w-full rounded-xl bg-chat-accent hover:bg-chat-accentHover text-white py-3 text-sm font-semibold transition-all shadow-md active:scale-98 disabled:opacity-50"
+              >
+                {loading ? "Verifying..." : "Verify & Sign In"}
+              </button>
 
-          <div className="relative my-5 flex items-center justify-center">
-            <div className="w-full border-t border-slate-200 dark:border-chat-border-dark" />
-            <span className="absolute bg-white dark:bg-chat-card-dark px-3 text-xs text-slate-400">
-              OR
-            </span>
-          </div>
-
-          <button
-            type="button"
-            onClick={handleDemoLogin}
-            disabled={loading}
-            className="w-full rounded-xl border border-slate-300 dark:border-chat-border-dark bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 py-2.5 text-xs font-semibold transition-colors"
-          >
-            Use Demo Account (Instant Access)
-          </button>
+              <button
+                type="button"
+                onClick={handleReset}
+                className="w-full text-center text-xs font-semibold text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors"
+              >
+                ← Change Email Address
+              </button>
+            </form>
+          )}
         </div>
       </div>
     </div>
