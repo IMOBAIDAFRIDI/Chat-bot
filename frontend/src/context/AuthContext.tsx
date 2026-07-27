@@ -6,6 +6,10 @@ interface AuthContextType {
   user: User | null;
   token: string | null;
   loading: boolean;
+  isAuthModalOpen: boolean;
+  openAuthModal: () => void;
+  closeAuthModal: () => void;
+  setAuthData: (user: User, token: string) => void;
   logout: () => void;
 }
 
@@ -21,6 +25,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [user, setUser] = useState<User | null>(DEFAULT_GUEST_USER);
   const [token, setToken] = useState<string | null>(() => localStorage.getItem("token") || "guest-token");
   const [loading, setLoading] = useState(false);
+  const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
 
   useEffect(() => {
     async function loadUser() {
@@ -42,6 +47,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     loadUser();
   }, [token]);
 
+  const openAuthModal = () => setIsAuthModalOpen(true);
+  const closeAuthModal = () => setIsAuthModalOpen(false);
+
+  const setAuthData = (newUser: User, newToken: string) => {
+    localStorage.setItem("token", newToken);
+    setToken(newToken);
+    setUser(newUser);
+    setIsAuthModalOpen(false);
+  };
+
   const logout = () => {
     localStorage.removeItem("token");
     setToken("guest-token");
@@ -49,7 +64,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   return (
-    <AuthContext.Provider value={{ user, token, loading, logout }}>
+    <AuthContext.Provider
+      value={{
+        user,
+        token,
+        loading,
+        isAuthModalOpen,
+        openAuthModal,
+        closeAuthModal,
+        setAuthData,
+        logout,
+      }}
+    >
       {children}
     </AuthContext.Provider>
   );

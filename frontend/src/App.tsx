@@ -13,6 +13,7 @@ import { Header } from "./components/Header";
 import { Sidebar } from "./components/Sidebar";
 import { ChatMessage } from "./components/ChatMessage";
 import { ChatInput } from "./components/ChatInput";
+import { AuthModal } from "./components/AuthModal";
 
 export const AppContent: React.FC = () => {
   const [chats, setChats] = useState<Chat[]>([]);
@@ -387,6 +388,8 @@ export const AppContent: React.FC = () => {
           isStreaming={isStreaming}
           disabled={false}
         />
+
+        <AuthModal />
       </div>
     </div>
   );
