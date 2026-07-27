@@ -2,7 +2,8 @@ import React, { useState } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { Message } from "../types";
-import { User, Copy, Check, Volume2, VolumeX, Sparkles, Zap, FileText, Download } from "lucide-react";
+import { User, Copy, Check, Volume2, VolumeX, Sparkles, Zap, FileText, Play } from "lucide-react";
+import { CodePreviewModal } from "./CodePreviewModal";
 
 interface ChatMessageProps {
   message: Message;
@@ -14,6 +15,10 @@ export const ChatMessage: React.FC<ChatMessageProps> = ({ message, isStreaming =
   const [copied, setCopied] = useState(false);
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [selectedFullImage, setSelectedFullImage] = useState<string | null>(null);
+
+  // Live Code Preview Modal State
+  const [previewCode, setPreviewCode] = useState<string | null>(null);
+  const [previewLang, setPreviewLang] = useState<string>("html");
 
   const handleCopy = () => {
     navigator.clipboard.writeText(message.content);
@@ -143,18 +148,45 @@ export const ChatMessage: React.FC<ChatMessageProps> = ({ message, isStreaming =
               components={{
                 code({ node, inline, className, children, ...props }: any) {
                   const match = /language-(\w+)/.exec(className || "");
+                  const lang = match ? match[1].toLowerCase() : "code";
+                  const codeContent = String(children).replace(/\n$/, "");
+
+                  const isRunnable =
+                    lang === "html" ||
+                    lang === "javascript" ||
+                    lang === "js" ||
+                    lang === "ts" ||
+                    lang === "jsx" ||
+                    lang === "tsx" ||
+                    codeContent.includes("<div") ||
+                    codeContent.includes("<!DOCTYPE");
+
                   return !inline ? (
                     <div className="relative my-3 rounded-2xl overflow-hidden border border-slate-700/80 bg-slate-950 shadow-xl">
                       <div className="flex items-center justify-between px-4 py-2 bg-slate-900 border-b border-slate-800 text-xs font-mono text-slate-400">
-                        <span>{match ? match[1] : "code"}</span>
-                        <button
-                          onClick={() => {
-                            navigator.clipboard.writeText(String(children).replace(/\n$/, ""));
-                          }}
-                          className="hover:text-white transition-colors"
-                        >
-                          Copy
-                        </button>
+                        <span className="font-bold text-emerald-400 uppercase tracking-wider">{lang}</span>
+                        <div className="flex items-center gap-3">
+                          {isRunnable && (
+                            <button
+                              onClick={() => {
+                                setPreviewCode(codeContent);
+                                setPreviewLang(lang);
+                              }}
+                              className="flex items-center gap-1 text-emerald-400 hover:text-emerald-300 font-semibold transition-colors bg-emerald-500/10 px-2 py-0.5 rounded"
+                            >
+                              <Play className="h-3 w-3 fill-current" />
+                              <span>Run Live Preview</span>
+                            </button>
+                          )}
+                          <button
+                            onClick={() => {
+                              navigator.clipboard.writeText(codeContent);
+                            }}
+                            className="hover:text-white transition-colors"
+                          >
+                            Copy
+                          </button>
+                        </div>
                       </div>
                       <pre className="p-4 overflow-x-auto text-xs font-mono text-emerald-300">
                         <code className={className} {...props}>
@@ -182,6 +214,14 @@ export const ChatMessage: React.FC<ChatMessageProps> = ({ message, isStreaming =
           </div>
         </div>
       </div>
+
+      {/* Live Code Execution Modal */}
+      <CodePreviewModal
+        isOpen={Boolean(previewCode)}
+        onClose={() => setPreviewCode(null)}
+        code={previewCode || ""}
+        language={previewLang}
+      />
 
       {/* Fullscreen Image Preview Lightbox Modal */}
       {selectedFullImage && (
