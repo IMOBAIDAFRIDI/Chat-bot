@@ -1,172 +1,176 @@
 import React, { useState } from "react";
-import { Plus, MessageSquare, Edit2, Trash2, Check, X, PanelLeftClose, PanelLeft } from "lucide-react";
+import { Plus, MessageSquare, Trash2, Edit2, Check, X, Sparkles, Zap } from "lucide-react";
 import { Chat } from "../types";
 
 interface SidebarProps {
+  isOpen: boolean;
+  onClose: () => void;
   chats: Chat[];
   activeChatId: string | null;
-  onSelectChat: (id: string) => void;
+  onSelectChat: (chatId: string) => void;
   onNewChat: () => void;
-  onRenameChat: (id: string, newTitle: string) => void;
-  onDeleteChat: (id: string) => void;
-  isOpen: boolean;
-  onToggle: () => void;
+  onDeleteChat: (chatId: string) => void;
+  onRenameChat: (chatId: string, newTitle: string) => void;
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({
+  isOpen,
+  onClose,
   chats,
   activeChatId,
   onSelectChat,
   onNewChat,
-  onRenameChat,
   onDeleteChat,
-  isOpen,
-  onToggle,
+  onRenameChat,
 }) => {
-  const [editingId, setEditingId] = useState<string | null>(null);
-  const [editTitle, setEditTitle] = useState("");
+  const [editingChatId, setEditingChatId] = useState<string | null>(null);
+  const [editingTitle, setEditingTitle] = useState("");
 
-  const handleStartEdit = (chat: Chat, e: React.MouseEvent) => {
+  const handleStartRename = (chat: Chat, e: React.MouseEvent) => {
     e.stopPropagation();
-    setEditingId(chat.id);
-    setEditTitle(chat.title);
+    setEditingChatId(chat.id);
+    setEditingTitle(chat.title);
   };
 
-  const handleSaveEdit = (id: string, e: React.MouseEvent | React.FormEvent) => {
+  const handleSaveRename = (chatId: string, e: React.MouseEvent | React.FormEvent) => {
     e.stopPropagation();
     e.preventDefault();
-    if (editTitle.trim()) {
-      onRenameChat(id, editTitle.trim());
+    if (editingTitle.trim()) {
+      onRenameChat(chatId, editingTitle.trim());
     }
-    setEditingId(null);
-  };
-
-  const handleCancelEdit = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    setEditingId(null);
-  };
-
-  const handleDelete = (id: string, e: React.MouseEvent) => {
-    e.stopPropagation();
-    if (window.confirm("Are you sure you want to delete this chat session?")) {
-      onDeleteChat(id);
-    }
+    setEditingChatId(null);
   };
 
   return (
     <>
-      {/* Mobile Backdrop */}
+      {/* Mobile backdrop */}
       {isOpen && (
         <div
-          onClick={onToggle}
-          className="fixed inset-0 z-40 bg-slate-950/60 backdrop-blur-sm md:hidden"
+          className="fixed inset-0 z-40 bg-slate-950/60 backdrop-blur-sm lg:hidden"
+          onClick={onClose}
         />
       )}
 
       <aside
-        className={`fixed md:static inset-y-0 left-0 z-50 flex flex-col w-72 bg-chat-sidebar-light dark:bg-chat-sidebar-dark border-r border-slate-200 dark:border-chat-border-dark transition-all duration-300 ${
-          isOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0 md:w-72"
+        className={`fixed top-0 bottom-0 left-0 z-40 flex w-72 flex-col border-r border-slate-200/80 dark:border-chat-border-dark bg-white dark:bg-chat-sidebar-dark transition-transform duration-300 ease-in-out lg:static lg:translate-x-0 ${
+          isOpen ? "translate-x-0 shadow-2xl" : "-translate-x-full"
         }`}
       >
-        {/* Top Actions */}
-        <div className="p-3 flex items-center justify-between gap-2 border-b border-slate-200/60 dark:border-chat-border-dark/60">
+        {/* Brand Header */}
+        <div className="flex h-16 items-center justify-between px-4 border-b border-slate-100 dark:border-chat-border-dark/60">
+          <div className="flex items-center gap-2.5">
+            <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-gradient-to-tr from-emerald-500 to-teal-400 text-white shadow-md">
+              <Zap className="h-4 w-4 fill-current" />
+            </div>
+            <span className="font-extrabold text-base bg-gradient-to-r from-emerald-600 to-teal-500 dark:from-emerald-400 dark:to-teal-300 bg-clip-text text-transparent">
+              Afridi-GPT
+            </span>
+          </div>
+
           <button
-            onClick={onNewChat}
-            className="flex-1 flex items-center justify-center gap-2 rounded-xl bg-chat-accent hover:bg-chat-accentHover text-white px-4 py-2.5 font-medium text-sm transition-all shadow-md active:scale-95"
+            onClick={onClose}
+            className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 lg:hidden"
           >
-            <Plus className="h-4 w-4" />
-            <span>New Chat</span>
-          </button>
-          <button
-            onClick={onToggle}
-            className="p-2 rounded-lg text-slate-500 hover:bg-slate-200 dark:hover:bg-slate-800 transition-colors"
-            title="Toggle sidebar"
-          >
-            <PanelLeftClose className="h-5 w-5" />
+            <X className="h-5 w-5" />
           </button>
         </div>
 
-        {/* Chat History List */}
-        <div className="flex-1 overflow-y-auto px-2 py-3 space-y-1">
-          <div className="px-3 pb-2 text-xs font-semibold text-slate-400 uppercase tracking-wider">
-            Chat History
+        {/* New Chat Button */}
+        <div className="p-4">
+          <button
+            onClick={onNewChat}
+            className="flex w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-tr from-emerald-500 via-teal-500 to-cyan-500 hover:brightness-110 text-white py-3 px-4 font-bold text-sm shadow-lg shadow-emerald-500/20 transition-all hover:scale-[1.02] active:scale-95"
+          >
+            <Plus className="h-4 w-4" />
+            <span>New Conversation</span>
+          </button>
+        </div>
+
+        {/* Chat Sessions History List */}
+        <div className="flex-1 overflow-y-auto px-3 space-y-1">
+          <div className="px-3 py-2 text-[11px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500">
+            Recent Conversations
           </div>
 
           {chats.length === 0 ? (
-            <div className="px-3 py-6 text-center text-xs text-slate-400">
-              No previous conversations yet.
+            <div className="px-3 py-6 text-center text-xs text-slate-400 dark:text-slate-500">
+              No conversations yet. Start a new chat!
             </div>
           ) : (
             chats.map((chat) => {
               const isActive = chat.id === activeChatId;
-              const isEditing = editingId === chat.id;
+              const isEditing = chat.id === editingChatId;
 
               return (
                 <div
                   key={chat.id}
-                  onClick={() => !isEditing && onSelectChat(chat.id)}
-                  className={`group relative flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm cursor-pointer transition-all ${
+                  onClick={() => onSelectChat(chat.id)}
+                  className={`group relative flex items-center justify-between rounded-xl px-3 py-2.5 text-sm font-medium transition-all cursor-pointer ${
                     isActive
-                      ? "bg-slate-200 dark:bg-slate-800 text-slate-900 dark:text-slate-100 font-medium"
-                      : "text-slate-600 dark:text-slate-400 hover:bg-slate-200/50 dark:hover:bg-slate-800/50 hover:text-slate-900 dark:hover:text-slate-200"
+                      ? "bg-slate-100 dark:bg-slate-800/90 text-chat-accent shadow-sm"
+                      : "text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800/40"
                   }`}
                 >
-                  <MessageSquare className="h-4 w-4 flex-shrink-0 text-slate-400 group-hover:text-chat-accent" />
-
-                  {isEditing ? (
-                    <form
-                      onSubmit={(e) => handleSaveEdit(chat.id, e)}
-                      className="flex items-center gap-1 flex-1 min-w-0"
-                    >
-                      <input
-                        type="text"
-                        value={editTitle}
-                        onChange={(e) => setEditTitle(e.target.value)}
-                        className="w-full bg-white dark:bg-slate-950 border border-chat-accent rounded px-2 py-0.5 text-xs text-slate-900 dark:text-slate-100 focus:outline-none"
-                        autoFocus
-                      />
-                      <button
-                        type="button"
-                        onClick={(e) => handleSaveEdit(chat.id, e)}
-                        className="p-1 text-emerald-500 hover:text-emerald-400"
+                  <div className="flex items-center gap-2.5 overflow-hidden pr-2">
+                    <MessageSquare className={`h-4 w-4 flex-shrink-0 ${isActive ? "text-chat-accent" : "text-slate-400"}`} />
+                    {isEditing ? (
+                      <form
+                        onSubmit={(e) => handleSaveRename(chat.id, e)}
+                        onClick={(e) => e.stopPropagation()}
+                        className="flex items-center gap-1"
                       >
-                        <Check className="h-3.5 w-3.5" />
+                        <input
+                          type="text"
+                          value={editingTitle}
+                          onChange={(e) => setEditingTitle(e.target.value)}
+                          className="w-32 bg-white dark:bg-slate-900 border border-chat-accent rounded px-1.5 py-0.5 text-xs text-slate-900 dark:text-slate-100 focus:outline-none"
+                          autoFocus
+                        />
+                        <button type="submit" className="p-0.5 text-emerald-500">
+                          <Check className="h-3.5 w-3.5" />
+                        </button>
+                      </form>
+                    ) : (
+                      <span className="truncate text-xs font-semibold">{chat.title}</span>
+                    )}
+                  </div>
+
+                  {!isEditing && (
+                    <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <button
+                        onClick={(e) => handleStartRename(chat, e)}
+                        className="p-1 rounded text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
+                        title="Rename topic"
+                      >
+                        <Edit2 className="h-3 w-3" />
                       </button>
                       <button
-                        type="button"
-                        onClick={handleCancelEdit}
-                        className="p-1 text-rose-500 hover:text-rose-400"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onDeleteChat(chat.id);
+                        }}
+                        className="p-1 rounded text-slate-400 hover:text-rose-500"
+                        title="Delete chat"
                       >
-                        <X className="h-3.5 w-3.5" />
+                        <Trash2 className="h-3 w-3" />
                       </button>
-                    </form>
-                  ) : (
-                    <>
-                      <span className="truncate flex-1">{chat.title}</span>
-
-                      {/* Action buttons (Rename / Delete) */}
-                      <div className="hidden group-hover:flex items-center gap-1">
-                        <button
-                          onClick={(e) => handleStartEdit(chat, e)}
-                          className="p-1 text-slate-400 hover:text-slate-200 transition-colors"
-                          title="Rename chat"
-                        >
-                          <Edit2 className="h-3.5 w-3.5" />
-                        </button>
-                        <button
-                          onClick={(e) => handleDelete(chat.id, e)}
-                          className="p-1 text-slate-400 hover:text-rose-400 transition-colors"
-                          title="Delete chat"
-                        >
-                          <Trash2 className="h-3.5 w-3.5" />
-                        </button>
-                      </div>
-                    </>
+                    </div>
                   )}
                 </div>
               );
             })
           )}
+        </div>
+
+        {/* Footer info */}
+        <div className="p-4 border-t border-slate-100 dark:border-chat-border-dark/60 bg-slate-50/50 dark:bg-slate-900/30">
+          <div className="flex items-center justify-between text-xs text-slate-500">
+            <span className="font-semibold text-slate-700 dark:text-slate-300">Afridi-GPT Pro</span>
+            <span className="flex items-center gap-1 text-emerald-500 font-bold">
+              <Sparkles className="h-3 w-3" />
+              <span>v3.5</span>
+            </span>
+          </div>
         </div>
       </aside>
     </>

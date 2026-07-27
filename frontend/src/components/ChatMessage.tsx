@@ -1,10 +1,8 @@
-import React from "react";
+import React, { useState } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
-import rehypeHighlight from "rehype-highlight";
-import { Bot, User as UserIcon } from "lucide-react";
 import { Message } from "../types";
-import { CodeBlock } from "./CodeBlock";
+import { User, Copy, Check, Volume2, VolumeX, Sparkles, Zap } from "lucide-react";
 
 interface ChatMessageProps {
   message: Message;
@@ -13,78 +11,143 @@ interface ChatMessageProps {
 
 export const ChatMessage: React.FC<ChatMessageProps> = ({ message, isStreaming = false }) => {
   const isUser = message.role === "user";
+  const [copied, setCopied] = useState(false);
+  const [isSpeaking, setIsSpeaking] = useState(false);
+
+  const handleCopy = () => {
+    navigator.clipboard.writeText(message.content);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  const handleToggleSpeech = () => {
+    if (!("speechSynthesis" in window)) return;
+
+    if (isSpeaking) {
+      window.speechSynthesis.cancel();
+      setIsSpeaking(false);
+    } else {
+      window.speechSynthesis.cancel();
+      const utterance = new SpeechSynthesisUtterance(message.content);
+      utterance.rate = 1.0;
+      utterance.pitch = 1.0;
+      utterance.onend = () => setIsSpeaking(false);
+      utterance.onerror = () => setIsSpeaking(false);
+      window.speechSynthesis.speak(utterance);
+      setIsSpeaking(true);
+    }
+  };
 
   return (
     <div
-      className={`group py-6 px-4 md:px-8 border-b border-slate-200/50 dark:border-chat-border-dark/40 transition-colors ${
+      className={`group flex w-full gap-4 px-4 py-6 md:px-6 transition-colors ${
         isUser
           ? "bg-transparent"
-          : "bg-slate-100/50 dark:bg-slate-900/40"
+          : "bg-slate-50/60 dark:bg-slate-900/40 border-y border-slate-100 dark:border-slate-800/40"
       }`}
     >
-      <div className="mx-auto flex max-w-4xl gap-4 md:gap-6">
-        {/* Avatar */}
-        <div className="flex-shrink-0">
-          {isUser ? (
-            <div className="flex h-9 w-9 items-center justify-center rounded-full bg-slate-700 text-white shadow-sm dark:bg-slate-700">
-              <UserIcon className="h-5 w-5" />
-            </div>
-          ) : (
-            <div className="flex h-9 w-9 items-center justify-center rounded-full bg-chat-accent text-white shadow-md">
-              <Bot className="h-5 w-5" />
+      <div className="flex-shrink-0">
+        {isUser ? (
+          <div className="flex h-9 w-9 items-center justify-center rounded-2xl bg-gradient-to-tr from-slate-700 to-slate-900 text-white shadow-md">
+            <User className="h-5 w-5" />
+          </div>
+        ) : (
+          <div className="flex h-9 w-9 items-center justify-center rounded-2xl bg-gradient-to-tr from-emerald-500 via-teal-500 to-cyan-500 text-white shadow-lg shadow-emerald-500/20 animate-pulse-slow">
+            <Zap className="h-5 w-5 fill-current" />
+          </div>
+        )}
+      </div>
+
+      <div className="flex-1 space-y-2 overflow-hidden">
+        {/* Author Header */}
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <span className="font-bold text-sm text-slate-900 dark:text-slate-100">
+              {isUser ? "You" : "Afridi-GPT"}
+            </span>
+            {!isUser && (
+              <span className="flex items-center gap-1 rounded-md bg-chat-accent/15 px-2 py-0.5 text-[11px] font-semibold text-chat-accent">
+                <Sparkles className="h-3 w-3" />
+                <span>AI</span>
+              </span>
+            )}
+          </div>
+
+          {/* Message Actions */}
+          {!isUser && (
+            <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+              {/* Read Aloud Button */}
+              <button
+                onClick={handleToggleSpeech}
+                className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-200/60 dark:hover:bg-slate-800 transition-colors"
+                title={isSpeaking ? "Stop reading" : "Read aloud"}
+              >
+                {isSpeaking ? (
+                  <VolumeX className="h-4 w-4 text-emerald-500 animate-pulse" />
+                ) : (
+                  <Volume2 className="h-4 w-4" />
+                )}
+              </button>
+
+              {/* Copy Message Button */}
+              <button
+                onClick={handleCopy}
+                className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-200/60 dark:hover:bg-slate-800 transition-colors"
+                title="Copy response"
+              >
+                {copied ? (
+                  <Check className="h-4 w-4 text-emerald-500" />
+                ) : (
+                  <Copy className="h-4 w-4" />
+                )}
+              </button>
             </div>
           )}
         </div>
 
-        {/* Message Content Body */}
-        <div className="min-w-0 flex-1 space-y-2">
-          <div className="flex items-center gap-2">
-            <span className="font-semibold text-sm text-slate-800 dark:text-slate-200">
-              {isUser ? "You" : "Gemini 3.5 Flash"}
-            </span>
-            <span className="text-xs text-slate-400">
-              {new Date(message.createdAt).toLocaleTimeString([], {
-                hour: "2-digit",
-                minute: "2-digit",
-              })}
-            </span>
-          </div>
+        {/* Content Body */}
+        <div className="prose dark:prose-invert max-w-none text-slate-800 dark:text-slate-200 text-sm leading-relaxed">
+          <ReactMarkdown
+            remarkPlugins={[remarkGfm]}
+            components={{
+              code({ node, inline, className, children, ...props }: any) {
+                const match = /language-(\w+)/.exec(className || "");
+                return !inline ? (
+                  <div className="relative my-3 rounded-2xl overflow-hidden border border-slate-700/80 bg-slate-950 shadow-xl">
+                    <div className="flex items-center justify-between px-4 py-2 bg-slate-900 border-b border-slate-800 text-xs font-mono text-slate-400">
+                      <span>{match ? match[1] : "code"}</span>
+                      <button
+                        onClick={() => {
+                          navigator.clipboard.writeText(String(children).replace(/\n$/, ""));
+                        }}
+                        className="hover:text-white transition-colors"
+                      >
+                        Copy
+                      </button>
+                    </div>
+                    <pre className="p-4 overflow-x-auto text-xs font-mono text-emerald-300">
+                      <code className={className} {...props}>
+                        {children}
+                      </code>
+                    </pre>
+                  </div>
+                ) : (
+                  <code
+                    className="bg-slate-200 dark:bg-slate-800 text-emerald-600 dark:text-emerald-400 px-1.5 py-0.5 rounded-md text-xs font-mono"
+                    {...props}
+                  >
+                    {children}
+                  </code>
+                );
+              },
+            }}
+          >
+            {message.content}
+          </ReactMarkdown>
 
-          <div className="prose dark:prose-invert max-w-none text-sm md:text-base text-slate-800 dark:text-slate-200 leading-relaxed">
-            <ReactMarkdown
-              remarkPlugins={[remarkGfm]}
-              rehypePlugins={[rehypeHighlight]}
-              components={{
-                code({ node, inline, className, children, ...props }: any) {
-                  const match = /language-(\w+)/.exec(className || "");
-                  const codeString = String(children).replace(/\n$/, "");
-
-                  if (!inline && (match || codeString.includes("\n"))) {
-                    return (
-                      <CodeBlock
-                        language={match ? match[1] : ""}
-                        code={codeString}
-                      />
-                    );
-                  }
-                  return (
-                    <code
-                      className="rounded bg-slate-200 dark:bg-slate-800 px-1.5 py-0.5 font-mono text-xs text-emerald-600 dark:text-emerald-400"
-                      {...props}
-                    >
-                      {children}
-                    </code>
-                  );
-                },
-              }}
-            >
-              {message.content}
-            </ReactMarkdown>
-
-            {isStreaming && (
-              <span className="inline-block h-4 w-2 ml-1 bg-chat-accent animate-pulse align-middle" />
-            )}
-          </div>
+          {isStreaming && (
+            <span className="inline-block ml-1 h-4 w-2 bg-chat-accent animate-pulse" />
+          )}
         </div>
       </div>
     </div>

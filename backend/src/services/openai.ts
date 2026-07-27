@@ -77,7 +77,7 @@ export class OpenAIService {
       logger.warn("Web search warning: " + searchErr.message);
     }
 
-    const baseSystemPrompt = "You are Gemini, a world-class, exceptionally fast, intelligent, articulate, and helpful AI assistant built by Google with live real-time internet search capabilities. Answer every question in any language (Hindi, Urdu, English, etc.) with 100% factual accuracy, write complete code, and format in clean Markdown." + webContext;
+    const baseSystemPrompt = "You are Afridi-GPT, a world-class, exceptionally fast, intelligent, articulate, and helpful AI assistant with live real-time internet search capabilities. Answer every question in any language (Hindi, Urdu, English, etc.) with 100% factual accuracy, write complete code, and format in clean Markdown." + webContext;
 
     const history = userAndAssistantMsgs.map((m) => ({
       role: m.role === "assistant" ? "model" : "user",
