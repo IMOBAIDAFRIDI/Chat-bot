@@ -1,6 +1,6 @@
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import { logger } from "../utils/logger";
-import { searchWeb } from "./webSearch";
+import { searchWeb, needsWebSearch } from "./webSearch";
 
 export interface ChatMessageParam {
   role: "user" | "assistant" | "system";
@@ -49,7 +49,7 @@ export class OpenAIService {
   }
 
   /**
-   * Fast Ultra-Low Latency (<1s) Google Gemini API Streaming Engine with Multi-Engine Real-Time Web Search
+   * Fast Ultra-Low Latency (<1s) Google Gemini API Streaming Engine with Smart Web Search
    */
   static async streamChatCompletion(
     messages: ChatMessageParam[],
@@ -65,19 +65,21 @@ export class OpenAIService {
     const lastUserMsg = userAndAssistantMsgs.pop()?.content || "";
     const previousUserMsg = userAndAssistantMsgs.filter((m) => m.role === "user").pop()?.content || "";
 
-    // Perform Live Internet Web Search for real-time topics
+    // Smart Web Search: Only triggered when user query asks for latest/real-time information
     let webContext = "";
-    try {
-      logger.info(`Performing live internet web search for: "${lastUserMsg}"`);
-      const searchResults = await searchWeb(lastUserMsg, previousUserMsg);
-      if (searchResults) {
-        webContext = `\n\n[REAL-TIME LIVE INTERNET WEB SEARCH RESULTS]:\n${searchResults}\n\nUse the live web search data above to answer the user with 100% up-to-date, accurate, latest real-time information.`;
+    if (needsWebSearch(lastUserMsg)) {
+      try {
+        logger.info(`Performing ultra-fast live web search for: "${lastUserMsg}"`);
+        const searchResults = await searchWeb(lastUserMsg, previousUserMsg);
+        if (searchResults) {
+          webContext = `\n\n[REAL-TIME LIVE INTERNET WEB SEARCH RESULTS]:\n${searchResults}\n\nUse the live web search data above to answer the user with 100% up-to-date, accurate, latest real-time information.`;
+        }
+      } catch (searchErr: any) {
+        logger.warn("Web search warning: " + searchErr.message);
       }
-    } catch (searchErr: any) {
-      logger.warn("Web search warning: " + searchErr.message);
     }
 
-    const baseSystemPrompt = "You are Gemini, a world-class, exceptionally fast, intelligent, articulate, and helpful AI assistant built by Google with real-time web search capabilities. Answer every question in any language (Hindi, Urdu, English, etc.) with 100% factual accuracy, write complete code, and format in clean Markdown." + webContext;
+    const baseSystemPrompt = "You are Gemini, a world-class, exceptionally fast, intelligent, articulate, and helpful AI assistant built by Google. Answer every question in any language (Hindi, Urdu, English, etc.) with 100% factual accuracy, write complete code, and format in clean Markdown." + webContext;
 
     const history = userAndAssistantMsgs.map((m) => ({
       role: m.role === "assistant" ? "model" : "user",
