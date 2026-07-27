@@ -22,6 +22,7 @@ const attachmentSchema = z.object({
 const sendMessageSchema = z.object({
   content: z.string().min(1, "Message content is required"),
   attachments: z.array(attachmentSchema).optional(),
+  persona: z.string().optional(),
 });
 
 async function ensureUserExists(userId: string, email: string) {
@@ -159,7 +160,7 @@ export async function streamMessage(req: AuthenticatedRequest, res: Response, ne
     await ensureUserExists(userId, email);
 
     const { chatId } = req.params;
-    const { content, attachments } = sendMessageSchema.parse(req.body);
+    const { content, attachments, persona } = sendMessageSchema.parse(req.body);
 
     // Fast Chat lookup or dynamic creation
     let chat = await prisma.chat.findFirst({
@@ -247,6 +248,7 @@ Ensure 100% factual accuracy, clarity, and helpfulness.`,
     await OpenAIService.streamChatCompletion(
       messageHistory,
       attachments as AttachmentParam[] | undefined,
+      persona,
       (chunk: string) => {
         assistantFullText += chunk;
         res.write(

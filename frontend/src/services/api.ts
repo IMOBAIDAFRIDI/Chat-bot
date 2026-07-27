@@ -134,6 +134,7 @@ export async function streamMessageApi(
   chatId: string,
   content: string,
   attachments: Attachment[] | undefined,
+  persona: string | undefined,
   onUserMessage: (msg: Message) => void,
   onChunk: (chunk: string) => void,
   onDone: (msg: Message) => void,
@@ -148,7 +149,7 @@ export async function streamMessageApi(
         "Content-Type": "application/json",
         ...getAuthHeader(),
       },
-      body: JSON.stringify({ content, attachments }),
+      body: JSON.stringify({ content, attachments, persona }),
       signal,
     });
 

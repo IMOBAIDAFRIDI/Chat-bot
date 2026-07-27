@@ -22,6 +22,7 @@ export const AppContent: React.FC = () => {
   const [streamingText, setStreamingText] = useState("");
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [errorNotice, setErrorNotice] = useState<string | null>(null);
+  const [selectedPersona, setSelectedPersona] = useState<string>("auto");
 
   const abortControllerRef = useRef<AbortController | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -145,6 +146,7 @@ export const AppContent: React.FC = () => {
       targetChatId,
       text || (attachments && attachments.length > 0 ? `Please analyze the attached document / image.` : ""),
       attachments,
+      selectedPersona,
       (userMsg) => {
         setMessages((prev) => prev.map((m) => (m.id === tempUserMsg.id ? { ...userMsg, attachments } : m)));
       },
@@ -235,6 +237,8 @@ export const AppContent: React.FC = () => {
           onToggleSidebar={() => setSidebarOpen(!sidebarOpen)}
           onExportChat={handleExportChat}
           onNewChat={handleNewChat}
+          selectedPersona={selectedPersona}
+          onSelectPersona={setSelectedPersona}
         />
 
         {/* Error Alert Bar */}

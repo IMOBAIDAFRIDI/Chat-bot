@@ -55,11 +55,12 @@ export class OpenAIService {
   }
 
   /**
-   * Fast Ultra-Low Latency Google Gemini API Multimodal Vision Engine (Images, PDFs, Search, Code)
+   * Fast Ultra-Low Latency Google Gemini API Multimodal Vision Engine with AI Personas
    */
   static async streamChatCompletion(
     messages: ChatMessageParam[],
     attachments: AttachmentParam[] | undefined,
+    persona: string | undefined,
     onChunk: (chunk: string) => void,
     onError: (err: any) => void,
     onComplete: (fullText: string) => void
@@ -112,14 +113,27 @@ export class OpenAIService {
       }
     }
 
-    const baseSystemPrompt = "You are Afridi-GPT, a world-class, exceptionally fast, intelligent, articulate, and helpful AI assistant with Multimodal Vision (Images, PDFs, Documents) and live real-time internet search capabilities. Answer every question in any language (Hindi, Urdu, English, etc.) with 100% factual accuracy, analyze images/PDFs thoroughly, write complete code, and format in clean Markdown." + webContext;
+    // 3. Dynamic Persona System Prompt Adaptation
+    let personaPrompt = "You are Afridi-GPT Pro, a world-class, exceptionally fast, intelligent, articulate, and helpful AI assistant with Multimodal Vision (Images, PDFs, Documents) and live real-time internet search capabilities.";
+
+    if (persona === "coder") {
+      personaPrompt = "You are Afridi-GPT Senior Software Engineer Persona. You write clean, production-grade, highly optimized, type-safe code with modular structure, complete error handling, and unit test suites. You excel at React, TypeScript, Python, Node.js, C++, and algorithms.";
+    } else if (persona === "researcher") {
+      personaPrompt = "You are Afridi-GPT Web Research Analyst Persona. You provide deep, up-to-date, fact-checked internet information with citation references and breaking news analysis.";
+    } else if (persona === "designer") {
+      personaPrompt = "You are Afridi-GPT Creative UI/UX & AI Art Designer Persona. You design stunning, vibrant, glassmorphic Web UIs using Tailwind CSS, HTML5, SVG, and high-resolution AI art prompts.";
+    } else if (persona === "reasoner") {
+      personaPrompt = "You are Afridi-GPT Deep Logic & Math Reasoner Persona. You solve complex mathematical, algorithmic, and logical problems step-by-step with rigorous proofs and mathematical formulas.";
+    }
+
+    const baseSystemPrompt = personaPrompt + webContext;
 
     const history = userAndAssistantMsgs.map((m) => ({
       role: m.role === "assistant" ? "model" : "user",
       parts: [{ text: m.content }],
     }));
 
-    // 3. Build Multimodal Parts (Images, PDFs, Text)
+    // 4. Build Multimodal Parts (Images, PDFs, Text)
     const multimodalParts: any[] = [{ text: lastUserMsg }];
 
     if (attachments && attachments.length > 0) {
@@ -142,7 +156,6 @@ export class OpenAIService {
     try {
       const genAI = new GoogleGenerativeAI(geminiKey);
       
-      // Use gemini-3.5-flash for Multimodal Vision (Images & PDFs)
       let modelName = attachments && attachments.length > 0 ? "gemini-3.5-flash" : "gemini-3.5-flash-lite";
 
       let model = genAI.getGenerativeModel({
