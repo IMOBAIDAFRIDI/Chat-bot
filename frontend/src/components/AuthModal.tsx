@@ -201,11 +201,6 @@ export const AuthModal: React.FC = () => {
               {signupSuccessNotice && (
                 <div className="p-3 text-xs font-medium text-emerald-600 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-900/50 rounded-xl">
                   {signupSuccessNotice}
-                  {devOtpHint && (
-                    <div className="mt-1 font-mono font-bold text-sm text-emerald-700">
-                      [Verification Code]: {devOtpHint}
-                    </div>
-                  )}
                 </div>
               )}
 

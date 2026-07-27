@@ -52,8 +52,7 @@ export async function sendOtp(req: Request, res: Response, next: NextFunction) {
     });
 
     res.json({
-      message: "Verification code sent to your email address.",
-      devOtpCode: code, // Also include OTP snippet so user can proceed instantly
+      message: "Verification code sent to your email address. Please check your Inbox.",
     });
   } catch (error) {
     next(error);
