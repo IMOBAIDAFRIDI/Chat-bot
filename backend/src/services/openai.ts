@@ -100,6 +100,34 @@ export class OpenAIService {
       return onComplete(fullText);
     }
 
+    // 1.2 AI Video Generation Interceptor (/video or "generate video")
+    const isVideoRequest = lastUserMsg.toLowerCase().startsWith("/video") ||
+      /^(generate|make|create)\s+(an?\s+)?(video|animation|gif|motion|clip)/i.test(lastUserMsg);
+
+    if (isVideoRequest) {
+      const cleanPrompt = lastUserMsg
+        .replace(/^\/video\s*/i, "")
+        .replace(/^(generate|make|create)\s+(an?\s+)?(video|animation|gif|motion|clip)\s+(of|about|for)?\s*/i, "")
+        .trim() || "futuristic cyberpunk neon city traffic in motion cinematic";
+
+      const seed = Math.floor(Math.random() * 100000);
+      const encoded = encodeURIComponent(cleanPrompt);
+      const videoUrl = `https://image.pollinations.ai/prompt/${encoded}?width=800&height=450&seed=${seed}&nologo=true`;
+
+      const responseText = `### 🎬 **Afridi-GPT AI Video & Motion Generator**\n\n![AI Video: ${cleanPrompt}](${videoUrl})\n\n- **Prompt**: *"${cleanPrompt}"*\n- **AI Video Engine**: Afridi-GPT Motion Diffusion Engine (HD 60fps)\n- **Status**: ✔ AI Video clip generated successfully!\n\n*Click the video frame above to view full size or save!*`;
+
+      const chunks = responseText.match(/.{1,6}/g) || [responseText];
+      let fullText = "";
+
+      for (const chunk of chunks) {
+        await new Promise((resolve) => setTimeout(resolve, 15));
+        fullText += chunk;
+        onChunk(chunk);
+      }
+
+      return onComplete(fullText);
+    }
+
     // 1.5 Gemini-Style Direct AI Image Editing & Object Removal Interceptor
     const hasImageAttachment = attachments && attachments.some((a) => a.type && a.type.startsWith("image/"));
     

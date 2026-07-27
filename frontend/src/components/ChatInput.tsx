@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from "react";
-import { Send, Square, Mic, MicOff, Paperclip, Image as ImageIcon, FileText, X, Globe, Sparkles } from "lucide-react";
+import { Send, Square, Mic, MicOff, Paperclip, Image as ImageIcon, FileText, X, Globe, Sparkles, Video } from "lucide-react";
 import { Attachment } from "../types";
 
 interface ChatInputProps {
@@ -18,6 +18,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({
   const [input, setInput] = useState("");
   const [isListening, setIsListening] = useState(false);
   const [isImageMode, setIsImageMode] = useState(false);
+  const [isVideoMode, setIsVideoMode] = useState(false);
   const [attachments, setAttachments] = useState<Attachment[]>([]);
 
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -165,15 +166,18 @@ export const ChatInput: React.FC<ChatInputProps> = ({
 
     let fullPrompt = input.trim();
 
-    // If Image Mode is toggled and prompt doesn't start with /image
+    // If Image or Video Mode is toggled
     if (isImageMode && !fullPrompt.toLowerCase().startsWith("/image")) {
       fullPrompt = `/image ${fullPrompt}`;
+    } else if (isVideoMode && !fullPrompt.toLowerCase().startsWith("/video")) {
+      fullPrompt = `/video ${fullPrompt}`;
     }
 
     onSend(fullPrompt, attachments.length > 0 ? attachments : undefined);
     setInput("");
     setAttachments([]);
     setIsImageMode(false);
+    setIsVideoMode(false);
     if (textareaRef.current) {
       textareaRef.current.style.height = "auto";
     }
@@ -265,7 +269,10 @@ export const ChatInput: React.FC<ChatInputProps> = ({
             {/* AI Image Generation Toggle */}
             <button
               type="button"
-              onClick={() => setIsImageMode(!isImageMode)}
+              onClick={() => {
+                setIsImageMode(!isImageMode);
+                setIsVideoMode(false);
+              }}
               className={`p-2 rounded-2xl transition-all ${
                 isImageMode
                   ? "bg-purple-500 text-white shadow-md shadow-purple-500/30"
@@ -274,6 +281,23 @@ export const ChatInput: React.FC<ChatInputProps> = ({
               title={isImageMode ? "AI Art Generator Active" : "Toggle AI Art Generator"}
             >
               <ImageIcon className="h-4 w-4" />
+            </button>
+
+            {/* AI Video Motion Generation Toggle */}
+            <button
+              type="button"
+              onClick={() => {
+                setIsVideoMode(!isVideoMode);
+                setIsImageMode(false);
+              }}
+              className={`p-2 rounded-2xl transition-all ${
+                isVideoMode
+                  ? "bg-blue-500 text-white shadow-md shadow-blue-500/30"
+                  : "text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800"
+              }`}
+              title={isVideoMode ? "AI Video Generator Active" : "Toggle AI Video Motion Generator"}
+            >
+              <Video className="h-4 w-4" />
             </button>
           </div>
 
