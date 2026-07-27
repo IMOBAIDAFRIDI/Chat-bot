@@ -22,10 +22,11 @@
       },
       "package": "com.afri.afridigpt",
       "permissions": [
-        "CAMERA",
-        "READ_EXTERNAL_STORAGE",
-        "WRITE_EXTERNAL_STORAGE",
-        "RECORD_AUDIO"
+        "android.permission.CAMERA",
+        "android.permission.READ_EXTERNAL_STORAGE",
+        "android.permission.WRITE_EXTERNAL_STORAGE",
+        "android.permission.RECORD_AUDIO",
+        "android.permission.RECORD_AUDIO"
       ]
     },
     "plugins": [
@@ -35,6 +36,11 @@
           "photosPermission": "Allow Afridi-GPT to access your photos for AI Multimodal Vision analysis."
         }
       ]
-    ]
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "9f3ebbb5-c8f4-4e1d-915d-3f93c642ccb0"
+      }
+    }
   }
 }

@@ -265,11 +265,33 @@ export default function App() {
           }
         />
 
-        {/* Selected Image Thumbnail Bar */}
+        {/* Selected Image Thumbnail Bar with Gemini AI Edit Quick Chips */}
         {selectedImage && (
           <View style={styles.imgPreviewBar}>
             <Image source={{ uri: selectedImage }} style={styles.thumbImg} />
-            <Text style={styles.thumbText}>Image attached</Text>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.thumbText}>Image attached for Gemini AI Edit</Text>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginTop: 4 }}>
+                <TouchableOpacity
+                  onPress={() => setInputText("Edit photo: change background to cybernetic sunset")}
+                  style={styles.chipBtn}
+                >
+                  <Text style={styles.chipText}>🌅 Sunset Edit</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  onPress={() => setInputText("Edit photo: turn into anime art style")}
+                  style={styles.chipBtn}
+                >
+                  <Text style={styles.chipText}>🎨 Anime Style</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  onPress={() => setInputText("Edit photo: convert to 3D cartoon avatar")}
+                  style={styles.chipBtn}
+                >
+                  <Text style={styles.chipText}>🤖 3D Avatar</Text>
+                </TouchableOpacity>
+              </ScrollView>
+            </View>
             <TouchableOpacity onPress={() => setSelectedImage(null)}>
               <Text style={styles.removeImgText}>❌</Text>
             </TouchableOpacity>
@@ -458,6 +480,20 @@ const styles = StyleSheet.create({
   },
   removeImgText: {
     fontSize: 12,
+  },
+  chipBtn: {
+    backgroundColor: "#0F172A",
+    borderRadius: 8,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    marginRight: 6,
+    borderWidth: 1,
+    borderColor: "#10B981",
+  },
+  chipText: {
+    color: "#10B981",
+    fontSize: 10,
+    fontWeight: "bold",
   },
   inputBar: {
     flexDirection: "row",
