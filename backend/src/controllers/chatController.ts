@@ -174,9 +174,21 @@ export async function streamMessage(req: AuthenticatedRequest, res: Response, ne
       chat = await prisma.chat.create({
         data: {
           id: chatId.startsWith("local-chat-") ? undefined : chatId,
-          title: content.slice(0, 25),
+          title: content.trim().slice(0, 30) || "New Chat",
           userId,
         },
+        include: {
+          messages: {
+            orderBy: { createdAt: "asc" },
+          },
+        },
+      });
+    } else if (chat.title === "New Chat" || !chat.title) {
+      // Auto-rename chat to user's first prompt snippet for permanent persistence!
+      const autoTitle = content.trim().slice(0, 30);
+      chat = await prisma.chat.update({
+        where: { id: chat.id },
+        data: { title: autoTitle },
         include: {
           messages: {
             orderBy: { createdAt: "asc" },

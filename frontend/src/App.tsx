@@ -162,6 +162,16 @@ export const AppContent: React.FC = () => {
     setIsStreaming(true);
     setStreamingText("");
 
+    // Auto-update chat title in UI sidebar
+    const chatTitleSnippet = content.trim().slice(0, 30);
+    setChats((prev) =>
+      prev.map((c) =>
+        c.id === currentChatId && (c.title === "New Chat" || !c.title)
+          ? { ...c, title: chatTitleSnippet }
+          : c
+      )
+    );
+
     const controller = new AbortController();
     abortControllerRef.current = controller;
 
