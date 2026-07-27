@@ -151,15 +151,7 @@ export const ChatMessage: React.FC<ChatMessageProps> = ({ message, isStreaming =
                   const lang = match ? match[1].toLowerCase() : "code";
                   const codeContent = String(children).replace(/\n$/, "");
 
-                  const isRunnable =
-                    lang === "html" ||
-                    lang === "javascript" ||
-                    lang === "js" ||
-                    lang === "ts" ||
-                    lang === "jsx" ||
-                    lang === "tsx" ||
-                    codeContent.includes("<div") ||
-                    codeContent.includes("<!DOCTYPE");
+                  const isRunnable = true;
 
                   return !inline ? (
                     <div className="relative my-3 rounded-2xl overflow-hidden border border-slate-700/80 bg-slate-950 shadow-xl">

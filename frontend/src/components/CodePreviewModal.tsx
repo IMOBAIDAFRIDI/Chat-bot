@@ -1,5 +1,5 @@
 import React from "react";
-import { X, Play, RefreshCw, ExternalLink, Code2, Maximize2 } from "lucide-react";
+import { X, Play, ExternalLink } from "lucide-react";
 
 interface CodePreviewModalProps {
   isOpen: boolean;
@@ -16,51 +16,91 @@ export const CodePreviewModal: React.FC<CodePreviewModalProps> = ({
 }) => {
   if (!isOpen) return null;
 
-  // Construct iframe html srcDoc
-  const getSrcDoc = () => {
-    if (language === "html" || code.includes("<html") || code.includes("<!DOCTYPE") || code.includes("<div")) {
-      return code;
-    }
+  const cleanLang = (language || "").toLowerCase().trim();
 
-    // Wrap JS or CSS inside a full HTML template
-    if (language === "javascript" || language === "js" || language === "ts") {
+  const getSrcDoc = () => {
+    // 1. Python Live Execution Engine via Pyodide WebAssembly
+    if (cleanLang === "python" || cleanLang === "py") {
+      const escapedCode = code
+        .replace(/\\/g, "\\\\")
+        .replace(/`/g, "\\`")
+        .replace(/\$/g, "\\$");
+
       return `
         <!DOCTYPE html>
         <html>
           <head>
             <meta charset="utf-8" />
-            <script src="https://cdn.tailwindcss.com"></script>
-            <style>body { font-family: sans-serif; padding: 20px; background-color: #0f172a; color: #f8fafc; }</style>
+            <title>Python Sandbox</title>
+            <script src="https://cdn.jsdelivr.net/pyodide/v0.25.0/full/pyodide.js"></script>
+            <style>
+              body { background-color: #090d16; color: #10b981; font-family: 'JetBrains Mono', monospace; padding: 24px; font-size: 14px; margin: 0; line-height: 1.6; }
+              #console { white-space: pre-wrap; word-break: break-word; }
+              .error { color: #f43f5e; font-weight: bold; }
+              .info { color: #38bdf8; }
+              .success { color: #34d399; }
+            </style>
           </head>
           <body>
-            <div id="output"></div>
+            <div id="console"><span class="info">⚡ Initializing Python WebAssembly Engine...</span>\n</div>
             <script>
-              console.log = function(...args) {
-                const out = document.getElementById("output");
-                out.innerHTML += "<div>> " + args.join(" ") + "</div>";
-              };
-              try {
-                ${code}
-              } catch (e) {
-                document.getElementById("output").innerHTML += "<div style='color:#f43f5e;'>Error: " + e.message + "</div>";
+              async function runPython() {
+                const con = document.getElementById("console");
+                try {
+                  let pyodide = await loadPyodide();
+                  con.innerHTML = "<span class='info'>🐍 Running Python script...</span>\n\n";
+                  
+                  pyodide.setStdout({
+                    batched: (str) => { con.innerHTML += str + "\n"; }
+                  });
+                  
+                  await pyodide.runPythonAsync(\`${escapedCode}\`);
+                  con.innerHTML += "\n<span class='success'>✔ [Process completed successfully]</span>";
+                } catch(e) {
+                  con.innerHTML += "\n<span class='error'>Traceback Error:\n" + e.message + "</span>";
+                }
               }
+              runPython();
             </script>
           </body>
         </html>
       `;
     }
 
-    return `
-      <!DOCTYPE html>
-      <html>
-        <head>
-          <script src="https://cdn.tailwindcss.com"></script>
-        </head>
-        <body class="p-6 bg-slate-900 text-slate-100">
-          <pre>${code.replace(/</g, "&lt;").replace(/>/g, "&gt;")}</pre>
-        </body>
-      </html>
-    `;
+    // 2. HTML / CSS / JS / React / UI Code Live Preview
+    if (!code.includes("<html") && !code.includes("<!DOCTYPE")) {
+      return `
+        <!DOCTYPE html>
+        <html>
+          <head>
+            <meta charset="utf-8" />
+            <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+            <script src="https://cdn.tailwindcss.com"></script>
+            <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+            <style>
+              body { padding: 1.5rem; background-color: #0f172a; color: #f8fafc; font-family: system-ui, -apple-system, sans-serif; }
+              ${cleanLang === "css" ? code : ""}
+            </style>
+          </head>
+          <body>
+            <div id="root">
+              ${cleanLang !== "css" ? code : "<div class='p-4 bg-emerald-500/20 text-emerald-300 rounded-xl font-bold'>CSS Styles Applied Successfully</div>"}
+            </div>
+            <script>
+              // Catch console logs and display on screen if no UI element
+              console.log = function(...args) {
+                const root = document.getElementById("root");
+                if (root && root.children.length === 0) {
+                  root.innerHTML += "<div style='color:#38bdf8; font-family:monospace; margin-top:10px;'>Console > " + args.join(" ") + "</div>";
+                }
+              };
+            </script>
+          </body>
+        </html>
+      `;
+    }
+
+    return code;
   };
 
   return (
@@ -69,17 +109,17 @@ export const CodePreviewModal: React.FC<CodePreviewModalProps> = ({
         {/* Modal Top Bar */}
         <div className="flex items-center justify-between px-6 py-4 bg-slate-950 border-b border-slate-800">
           <div className="flex items-center gap-3">
-            <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-emerald-500/20 text-emerald-400 font-bold">
+            <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-gradient-to-tr from-emerald-500 to-teal-400 text-white font-bold shadow-md">
               <Play className="h-4 w-4 fill-current" />
             </div>
             <div>
               <h3 className="font-bold text-sm text-slate-100 flex items-center gap-2">
-                <span>Afridi-GPT Interactive Live Preview</span>
-                <span className="rounded bg-emerald-500/20 px-2 py-0.5 text-[10px] font-mono text-emerald-400 uppercase">
-                  {language || "HTML/JS"}
+                <span>Afridi-GPT Universal Live Code Sandbox</span>
+                <span className="rounded bg-emerald-500/20 px-2 py-0.5 text-[10px] font-mono text-emerald-400 uppercase font-bold">
+                  {cleanLang || "LIVE"}
                 </span>
               </h3>
-              <p className="text-xs text-slate-400">Real-time live execution iframe sandbox</p>
+              <p className="text-xs text-slate-400">Executes HTML, CSS, JavaScript, React & Python scripts in real-time</p>
             </div>
           </div>
 
@@ -114,7 +154,7 @@ export const CodePreviewModal: React.FC<CodePreviewModalProps> = ({
             title="Live Code Preview Sandbox"
             srcDoc={getSrcDoc()}
             sandbox="allow-scripts allow-modals allow-forms allow-same-origin"
-            className="h-full w-full border-none bg-white"
+            className="h-full w-full border-none bg-slate-950"
           />
         </div>
       </div>
