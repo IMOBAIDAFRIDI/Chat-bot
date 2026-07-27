@@ -20,7 +20,7 @@ const attachmentSchema = z.object({
 });
 
 const sendMessageSchema = z.object({
-  content: z.string().min(1, "Message content is required"),
+  content: z.string().optional().default(""),
   attachments: z.array(attachmentSchema).optional(),
   persona: z.string().optional(),
 });
@@ -208,23 +208,15 @@ export async function streamMessage(req: AuthenticatedRequest, res: Response, ne
       },
     });
 
-    // Expert System Prompt for Afridi-GPT Multimodal Accuracy
+    // Build message history — system prompt & persona are handled inside OpenAIService
     const messageHistory: ChatMessageParam[] = [
-      {
-        role: "system",
-        content: `You are Afridi-GPT, an advanced, highly intelligent, precise, and articulate AI assistant.
-You provide exceptionally detailed, accurate, step-by-step, and correct answers.
-You excel at Multimodal Vision (analyzing Images & PDF documents), software engineering, programming, math, logic, complex reasoning, science, writing, and general knowledge.
-Always format code using clean, syntax-highlighted Markdown code blocks with exact language labels.
-Ensure 100% factual accuracy, clarity, and helpfulness.`,
-      },
       ...chat.messages.map((m) => ({
         role: m.role as "user" | "assistant" | "system",
         content: m.content,
       })),
       {
         role: "user",
-        content,
+        content: content || (attachments && attachments.length > 0 ? "Please analyze and process this image." : ""),
       },
     ];
 
