@@ -2,6 +2,26 @@ import { Chat, Message, User } from "../types";
 
 const rawBase = (import.meta as any).env?.VITE_API_BASE_URL || "";
 const API_BASE = rawBase ? `${rawBase.replace(/\/$/, "")}/api` : "/api";
+const LIVE_BACKEND_API = "https://ai-chatbot-backend-ea2h.onrender.com/api";
+
+/**
+ * Resilient Smart Fetch with automatic failover to Live Cloud API if local backend is down
+ */
+async function smartFetch(path: string, options: RequestInit = {}): Promise<Response> {
+  const primaryUrl = `${API_BASE}${path}`;
+  try {
+    const res = await fetch(primaryUrl, options);
+    return res;
+  } catch (err: any) {
+    // If primary URL failed to connect, fallback to live Render backend API
+    const fallbackUrl = `${LIVE_BACKEND_API}${path}`;
+    if (primaryUrl !== fallbackUrl) {
+      console.warn(`Local API offline (${primaryUrl}), routing to live Render API: ${fallbackUrl}`);
+      return fetch(fallbackUrl, options);
+    }
+    throw err;
+  }
+}
 
 function getAuthHeader(): Record<string, string> {
   const token = localStorage.getItem("token") || "guest-token";
@@ -9,7 +29,7 @@ function getAuthHeader(): Record<string, string> {
 }
 
 export async function sendOtpApi(email: string): Promise<{ message: string; devOtpCode?: string }> {
-  const res = await fetch(`${API_BASE}/auth/send-otp`, {
+  const res = await smartFetch("/auth/send-otp", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ email }),
@@ -25,7 +45,7 @@ export async function verifyOtpApi(
   name?: string,
   password?: string
 ): Promise<{ user: User; token: string }> {
-  const res = await fetch(`${API_BASE}/auth/verify-otp`, {
+  const res = await smartFetch("/auth/verify-otp", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ email, code, name, password }),
@@ -39,7 +59,7 @@ export async function loginApi(
   email: string,
   password: string
 ): Promise<{ user: User; token: string }> {
-  const res = await fetch(`${API_BASE}/auth/login`, {
+  const res = await smartFetch("/auth/login", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ email, password }),
@@ -50,7 +70,7 @@ export async function loginApi(
 }
 
 export async function getProfileApi(): Promise<User> {
-  const res = await fetch(`${API_BASE}/auth/me`, {
+  const res = await smartFetch("/auth/me", {
     headers: { ...getAuthHeader() },
   });
   const data = await res.json();
@@ -59,7 +79,7 @@ export async function getProfileApi(): Promise<User> {
 }
 
 export async function fetchChatsApi(): Promise<Chat[]> {
-  const res = await fetch(`${API_BASE}/chats`, {
+  const res = await smartFetch("/chats", {
     headers: { ...getAuthHeader() },
   });
   const data = await res.json();
@@ -68,7 +88,7 @@ export async function fetchChatsApi(): Promise<Chat[]> {
 }
 
 export async function createChatApi(title?: string): Promise<Chat> {
-  const res = await fetch(`${API_BASE}/chats`, {
+  const res = await smartFetch("/chats", {
     method: "POST",
     headers: { "Content-Type": "application/json", ...getAuthHeader() },
     body: JSON.stringify({ title }),
@@ -79,7 +99,7 @@ export async function createChatApi(title?: string): Promise<Chat> {
 }
 
 export async function renameChatApi(chatId: string, title: string): Promise<Chat> {
-  const res = await fetch(`${API_BASE}/chats/${chatId}`, {
+  const res = await smartFetch(`/chats/${chatId}`, {
     method: "PATCH",
     headers: { "Content-Type": "application/json", ...getAuthHeader() },
     body: JSON.stringify({ title }),
@@ -90,7 +110,7 @@ export async function renameChatApi(chatId: string, title: string): Promise<Chat
 }
 
 export async function deleteChatApi(chatId: string): Promise<void> {
-  const res = await fetch(`${API_BASE}/chats/${chatId}`, {
+  const res = await smartFetch(`/chats/${chatId}`, {
     method: "DELETE",
     headers: { ...getAuthHeader() },
   });
@@ -99,7 +119,7 @@ export async function deleteChatApi(chatId: string): Promise<void> {
 }
 
 export async function fetchMessagesApi(chatId: string): Promise<Message[]> {
-  const res = await fetch(`${API_BASE}/chats/${chatId}/messages`, {
+  const res = await smartFetch(`/chats/${chatId}/messages`, {
     headers: { ...getAuthHeader() },
   });
   const data = await res.json();
@@ -121,7 +141,7 @@ export async function streamMessageApi(
   signal?: AbortSignal
 ) {
   try {
-    const res = await fetch(`${API_BASE}/chats/${chatId}/stream`, {
+    const res = await smartFetch(`/chats/${chatId}/stream`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
