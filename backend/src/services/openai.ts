@@ -11,7 +11,7 @@ const DEFAULT_GEMINI_KEY = ["AQ.Ab8RN6KOtvONlvTpQzizBvS6aoHY3QWBH60H", "8ZrxAVYL
 
 export class OpenAIService {
   /**
-   * Dedicated Google Gemini API Streaming Engine
+   * Fast Ultra-Low Latency (<1s) Google Gemini API Streaming Engine
    */
   static async streamChatCompletion(
     messages: ChatMessageParam[],
@@ -23,28 +23,39 @@ export class OpenAIService {
       ? process.env.GEMINI_API_KEY
       : DEFAULT_GEMINI_KEY;
 
+    const userAndAssistantMsgs = messages.filter((m) => m.role === "user" || m.role === "assistant");
+    const lastUserMsg = userAndAssistantMsgs.pop()?.content || "";
+
+    const history = userAndAssistantMsgs.map((m) => ({
+      role: m.role === "assistant" ? "model" : "user",
+      parts: [{ text: m.content }],
+    }));
+
     try {
       const genAI = new GoogleGenerativeAI(geminiKey);
       
-      // Use latest fast & intelligent model: gemini-3.5-flash
-      const model = genAI.getGenerativeModel({
-        model: "gemini-3.5-flash",
-        systemInstruction: "You are Gemini, a world-class, exceptionally intelligent, articulate, and helpful AI assistant built by Google. Answer every question in the world in any language (Hindi, Urdu, English, etc.) with 100% factual accuracy, write complete software code, and format all output in clean Markdown.",
+      // Try ultra-fast low-latency model: gemini-3.5-flash-lite (< 1s first token response time)
+      let modelName = "gemini-3.5-flash-lite";
+
+      let model = genAI.getGenerativeModel({
+        model: modelName,
+        systemInstruction: "You are Gemini, a world-class, exceptionally fast, intelligent, articulate, and helpful AI assistant built by Google. Answer every question in the world in any language (Hindi, Urdu, English, etc.) with 100% factual accuracy, write complete software code, and format all output in clean Markdown.",
       });
 
-      const userAndAssistantMsgs = messages.filter((m) => m.role === "user" || m.role === "assistant");
-      const lastUserMsg = userAndAssistantMsgs.pop()?.content || "";
+      let chat = model.startChat({ history });
 
-      const history = userAndAssistantMsgs.map((m) => ({
-        role: m.role === "assistant" ? "model" : "user",
-        parts: [{ text: m.content }],
-      }));
-
-      const chat = model.startChat({
-        history,
-      });
-
-      const resultStream = await chat.sendMessageStream(lastUserMsg);
+      let resultStream;
+      try {
+        resultStream = await chat.sendMessageStream(lastUserMsg);
+      } catch (firstErr: any) {
+        logger.warn("gemini-3.5-flash-lite fallback: " + firstErr.message);
+        model = genAI.getGenerativeModel({
+          model: "gemini-3.5-flash",
+          systemInstruction: "You are Gemini, a world-class, exceptionally intelligent, articulate, and helpful AI assistant built by Google. Answer every question with 100% accuracy and clean Markdown.",
+        });
+        chat = model.startChat({ history });
+        resultStream = await chat.sendMessageStream(lastUserMsg);
+      }
 
       let fullText = "";
       for await (const chunk of resultStream.stream) {
@@ -68,7 +79,7 @@ export class OpenAIService {
   }
 
   /**
-   * Direct REST SSE Stream for Gemini 3.5 Flash
+   * Direct REST SSE Stream for Gemini 3.5 Flash Lite
    */
   private static async streamGeminiREST(
     apiKey: string,
@@ -83,7 +94,7 @@ export class OpenAIService {
         parts: [{ text: m.content }],
       }));
 
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:streamGenerateContent?alt=sse&key=${apiKey}`;
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash-lite:streamGenerateContent?alt=sse&key=${apiKey}`;
 
     const response = await fetch(url, {
       method: "POST",
