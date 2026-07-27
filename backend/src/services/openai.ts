@@ -128,42 +128,6 @@ export class OpenAIService {
       return onComplete(fullText);
     }
 
-    // 1.5 Gemini-Style Direct AI Image Editing & Object Removal Interceptor
-    const hasImageAttachment = attachments && attachments.some((a) => a.type && a.type.startsWith("image/"));
-    
-    // Check if user is asking to edit, remove, clean, modify, or transform the image in English or Roman Urdu
-    const isEditOrRemoveAction = hasImageAttachment && (
-      /^(edit|modify|transform|change|convert|make|turn|add|remove|delete|erase|clean|crop|cut|hata|nikal|banao)/i.test(lastUserMsg) ||
-      /\b(edit|modify|transform|change|convert|remove|delete|erase|clean|crop|hata|nikal|bachi|girl|boy|person|left|right|background|anime|cartoon|3d|filter)\b/i.test(lastUserMsg) ||
-      lastUserMsg.toLowerCase().includes("hata") ||
-      lastUserMsg.toLowerCase().includes("remove") ||
-      lastUserMsg.toLowerCase().includes("delete")
-    );
-
-    if (hasImageAttachment && isEditOrRemoveAction) {
-      // Build clean edit prompt for AI inpainting/diffusion
-      const cleanInstruction = lastUserMsg
-        .replace(/^(edit|modify|transform|change|convert|make|turn|add|remove|delete|erase|clean|hatao?|nikalo?)\s*(this\s*)?(image|photo|picture|se|ko)?\s*/gi, "")
-        .trim() || "professionally edited photo with object removed";
-
-      const seed = Math.floor(Math.random() * 1000000);
-      const promptToGenerate = encodeURIComponent(`high quality clean photo, ${cleanInstruction}, preserve exact original facial features and identity, identical face structure, same person face, 8k resolution, photorealistic, professional retouch`);
-      const editedImageUrl = `https://image.pollinations.ai/prompt/${promptToGenerate}?width=1024&height=1024&seed=${seed}&nologo=true`;
-
-      const responseText = `### ✏️ **Afridi-GPT Gemini AI Photo Editor**\n\n![Edited Photo: ${lastUserMsg}](${editedImageUrl})\n\n- **Request**: *"${lastUserMsg}"*\n- **AI Action**: Object Removal & Inpainting Retouch Applied\n- **Status**: ✔ Image edited successfully inside chatbox!\n\n*Click the image above to view full size or right click to download!*`;
-
-      const chunks = responseText.match(/.{1,6}/g) || [responseText];
-      let fullText = "";
-
-      for (const chunk of chunks) {
-        await new Promise((resolve) => setTimeout(resolve, 15));
-        fullText += chunk;
-        onChunk(chunk);
-      }
-
-      return onComplete(fullText);
-    }
-
     // 2. Perform Live Internet Web Search for text queries without images
     let webContext = "";
     if (!attachments || attachments.length === 0) {
