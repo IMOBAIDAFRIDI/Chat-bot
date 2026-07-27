@@ -55,7 +55,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({
           value={input}
           onChange={(e) => setInput(e.target.value)}
           onKeyDown={handleKeyDown}
-          placeholder="Message GPT-5.4 Mini..."
+          placeholder="Message Gemini 3.5 Flash..."
           rows={1}
           disabled={disabled}
           className="w-full resize-none bg-transparent px-4 py-3.5 pr-14 text-sm md:text-base text-slate-900 dark:text-slate-100 placeholder-slate-400 focus:outline-none max-h-48 scrollbar-thin"
@@ -89,7 +89,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({
       </form>
 
       <p className="mt-2 text-center text-xs text-slate-400 dark:text-slate-500">
-        GPT-5.4 Mini may produce inaccurate information about people, places, or facts.
+        Gemini 3.5 Flash may produce inaccurate information about people, places, or facts.
       </p>
     </div>
   );
