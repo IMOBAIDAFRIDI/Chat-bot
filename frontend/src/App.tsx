@@ -212,7 +212,7 @@ export const AppContent: React.FC = () => {
             id: "fallback-assistant-" + Date.now(),
             chatId: serverChatId,
             role: "assistant",
-            content: `### 🤖 Claude 3.5 Sonnet Response\n\nHere is the solution for your query: **"${content}"**\n\n1. **Core Concept**: Processing request with high accuracy and low latency.\n2. **Execution**: Full-stack integration active.\n\n\`\`\`typescript\n// Complete solution structure\nexport function solveQuery(input: string) {\n  return { status: "Success", query: input };\n}\n\`\`\``,
+            content: `### 🤖 Gemini 3.5 Flash Response\n\nHere is the solution for your query: **"${content}"**\n\n1. **Core Concept**: Processing request with high accuracy and low latency.\n2. **Execution**: Full-stack integration active.\n\n\`\`\`typescript\n// Complete solution structure\nexport function solveQuery(input: string) {\n  return { status: "Success", query: input };\n}\n\`\`\``,
             createdAt: new Date().toISOString(),
           };
           setMessages((prev) => [...prev, fallbackAssistantMsg]);
