@@ -78,29 +78,65 @@ export const ChatInput: React.FC<ChatInputProps> = ({
       const isImage = file.type.startsWith("image/");
       const isPdf = file.type === "application/pdf" || file.name.endsWith(".pdf");
 
-      const reader = new FileReader();
+      if (isImage) {
+        // Compress Image client-side using Canvas to prevent 413 Payload Too Large
+        const reader = new FileReader();
+        reader.onload = (event) => {
+          const img = new Image();
+          img.onload = () => {
+            const canvas = document.createElement("canvas");
+            const maxDim = 1280;
+            let width = img.width;
+            let height = img.height;
 
-      if (isImage || isPdf) {
-        // Read as Data URL / Base64
+            if (width > maxDim || height > maxDim) {
+              if (width > height) {
+                height = Math.round((height * maxDim) / width);
+                width = maxDim;
+              } else {
+                width = Math.round((width * maxDim) / height);
+                height = maxDim;
+              }
+            }
+
+            canvas.width = width;
+            canvas.height = height;
+            const ctx = canvas.getContext("2d");
+            ctx?.drawImage(img, 0, 0, width, height);
+
+            const compressedDataUrl = canvas.toDataURL(file.type || "image/jpeg", 0.85);
+            const base64Data = compressedDataUrl.split(",")[1];
+
+            setAttachments((prev) => [
+              ...prev,
+              {
+                name: file.name,
+                type: file.type || "image/jpeg",
+                data: base64Data,
+                url: compressedDataUrl,
+              },
+            ]);
+          };
+          img.src = event.target?.result as string;
+        };
+        reader.readAsDataURL(file);
+      } else if (isPdf) {
+        const reader = new FileReader();
         reader.onload = (event) => {
           const dataUrl = event.target?.result as string;
-          // Extract base64 part
           const base64Data = dataUrl.split(",")[1] || dataUrl;
-          const mimeType = isImage ? file.type : "application/pdf";
-
           setAttachments((prev) => [
             ...prev,
             {
               name: file.name,
-              type: mimeType,
+              type: "application/pdf",
               data: base64Data,
-              url: isImage ? dataUrl : undefined,
             },
           ]);
         };
         reader.readAsDataURL(file);
       } else {
-        // Read text / code file
+        const reader = new FileReader();
         reader.onload = (event) => {
           const text = event.target?.result as string;
           setAttachments((prev) => [
