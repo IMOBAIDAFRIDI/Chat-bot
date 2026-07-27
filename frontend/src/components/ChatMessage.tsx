@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { Message } from "../types";
-import { User, Copy, Check, Volume2, VolumeX, Sparkles, Zap, FileText, Play } from "lucide-react";
+import { User, Copy, Check, Volume2, VolumeX, Sparkles, Zap, FileText, Play, Download } from "lucide-react";
 import { CodePreviewModal } from "./CodePreviewModal";
 
 interface ChatMessageProps {
@@ -178,6 +178,33 @@ export const ChatMessage: React.FC<ChatMessageProps> = ({ message, isStreaming =
                               <span>Run Live Preview</span>
                             </button>
                           )}
+                          <button
+                            onClick={() => {
+                              const extMap: Record<string, string> = {
+                                html: "html",
+                                javascript: "js",
+                                js: "js",
+                                typescript: "ts",
+                                ts: "ts",
+                                python: "py",
+                                py: "py",
+                                json: "json",
+                                css: "css",
+                              };
+                              const ext = extMap[lang] || "txt";
+                              const blob = new Blob([codeContent], { type: "text/plain" });
+                              const url = URL.createObjectURL(blob);
+                              const a = document.createElement("a");
+                              a.href = url;
+                              a.download = `Afridi-Code-Snippet.${ext}`;
+                              a.click();
+                            }}
+                            className="hover:text-white transition-colors flex items-center gap-1"
+                            title="Download code snippet file"
+                          >
+                            <Download className="h-3 w-3" />
+                            <span>Download</span>
+                          </button>
                           <button
                             onClick={() => {
                               navigator.clipboard.writeText(codeContent);

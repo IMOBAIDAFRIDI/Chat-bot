@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { Plus, MessageSquare, Trash2, Edit2, Check, X, Sparkles, Zap } from "lucide-react";
+import { Plus, MessageSquare, Trash2, Edit2, Check, X, Sparkles, Zap, Search } from "lucide-react";
 import { Chat } from "../types";
 
 interface SidebarProps {
@@ -25,6 +25,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
 }) => {
   const [editingChatId, setEditingChatId] = useState<string | null>(null);
   const [editingTitle, setEditingTitle] = useState("");
+  const [searchQuery, setSearchQuery] = useState("");
 
   const handleStartRename = (chat: Chat, e: React.MouseEvent) => {
     e.stopPropagation();
@@ -40,6 +41,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
     }
     setEditingChatId(null);
   };
+
+  const filteredChats = chats.filter((c) =>
+    c.title.toLowerCase().includes(searchQuery.toLowerCase().trim())
+  );
 
   return (
     <>
@@ -75,8 +80,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
           </button>
         </div>
 
-        {/* New Chat Button */}
-        <div className="p-4">
+        {/* New Chat Button & Search */}
+        <div className="p-3 space-y-2">
           <button
             onClick={onNewChat}
             className="flex w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-tr from-emerald-500 via-teal-500 to-cyan-500 hover:brightness-110 text-white py-3 px-4 font-bold text-sm shadow-lg shadow-emerald-500/20 transition-all hover:scale-[1.02] active:scale-95"
@@ -84,20 +89,32 @@ export const Sidebar: React.FC<SidebarProps> = ({
             <Plus className="h-4 w-4" />
             <span>New Conversation</span>
           </button>
+
+          {/* Search Filter Input */}
+          <div className="relative flex items-center">
+            <Search className="absolute left-3 h-3.5 w-3.5 text-slate-400" />
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Search chat history..."
+              className="w-full bg-slate-100 dark:bg-slate-900 border border-transparent dark:border-slate-800 rounded-xl pl-9 pr-3 py-1.5 text-xs text-slate-900 dark:text-slate-100 placeholder-slate-400 focus:outline-none focus:border-chat-accent/60"
+            />
+          </div>
         </div>
 
         {/* Chat Sessions History List */}
         <div className="flex-1 overflow-y-auto px-3 space-y-1">
-          <div className="px-3 py-2 text-[11px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500">
-            Recent Conversations
+          <div className="px-3 py-1.5 text-[11px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500">
+            Recent Conversations ({filteredChats.length})
           </div>
 
-          {chats.length === 0 ? (
+          {filteredChats.length === 0 ? (
             <div className="px-3 py-6 text-center text-xs text-slate-400 dark:text-slate-500">
-              No conversations yet. Start a new chat!
+              No conversations found.
             </div>
           ) : (
-            chats.map((chat) => {
+            filteredChats.map((chat) => {
               const isActive = chat.id === activeChatId;
               const isEditing = chat.id === editingChatId;
 
