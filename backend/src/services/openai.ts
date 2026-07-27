@@ -49,7 +49,7 @@ export class OpenAIService {
   }
 
   /**
-   * Fast Ultra-Low Latency (<1s) Google Gemini API Streaming Engine with Live Real-Time Web Search
+   * Fast Ultra-Low Latency (<1s) Google Gemini API Streaming Engine with Web Search & AI Image Generation
    */
   static async streamChatCompletion(
     messages: ChatMessageParam[],
@@ -65,7 +65,34 @@ export class OpenAIService {
     const lastUserMsg = userAndAssistantMsgs.pop()?.content || "";
     const previousUserMsg = userAndAssistantMsgs.filter((m) => m.role === "user").pop()?.content || "";
 
-    // Perform Live Internet Web Search
+    // 1. AI Image Generation Interceptor (/image or "generate image")
+    const isImageRequest = lastUserMsg.toLowerCase().startsWith("/image") ||
+      /^(generate|draw|create)\s+(an?\s+)?(image|picture|photo|illustration|art)/i.test(lastUserMsg);
+
+    if (isImageRequest) {
+      const cleanPrompt = lastUserMsg
+        .replace(/^\/image\s*/i, "")
+        .replace(/^(generate|draw|create)\s+(an?\s+)?(image|picture|photo|illustration|art)\s+(of|about|for)?\s*/i, "")
+        .trim() || "futuristic cybernetic AI city at sunset 8k digital art";
+
+      const encoded = encodeURIComponent(cleanPrompt);
+      const imageUrl = `https://image.pollinations.ai/prompt/${encoded}?width=1024&height=1024&nologo=true`;
+
+      const responseText = `### 🎨 **Afridi-GPT AI Art Generator**\n\n![${cleanPrompt}](${imageUrl})\n\n- **Prompt**: *"${cleanPrompt}"*\n- **Engine**: Pollinations High-Def AI Diffusion Engine (1024x1024)\n\n*Click the image above to open full size or right click to download!*`;
+
+      const chunks = responseText.match(/.{1,6}/g) || [responseText];
+      let fullText = "";
+
+      for (const chunk of chunks) {
+        await new Promise((resolve) => setTimeout(resolve, 15));
+        fullText += chunk;
+        onChunk(chunk);
+      }
+
+      return onComplete(fullText);
+    }
+
+    // 2. Perform Live Internet Web Search
     let webContext = "";
     try {
       logger.info(`Performing live internet web search for: "${lastUserMsg}"`);
@@ -204,7 +231,7 @@ export class OpenAIService {
     onComplete: (fullText: string) => void
   ) {
     const lastUserMsg = messages.filter((m) => m.role === "user").pop()?.content || "";
-    const responseText = `### Gemini 3.5 Flash Response\n\nHere is the answer for: **"${lastUserMsg}"**\n\n- **Engine**: Google Gemini 3.5 Flash + Web Search\n- **Status**: Live Streaming Active\n\n\`\`\`typescript\n// Gemini Service\nexport function geminiQuery(input: string) {\n  return { answer: "Processed by Google Gemini", query: input };\n}\n\`\`\``;
+    const responseText = `### Afridi-GPT Response\n\nHere is the answer for: **"${lastUserMsg}"**\n\n- **Engine**: Afridi-GPT v3.5 Pro + Real-Time Search\n- **Status**: Live Streaming Active\n\n\`\`\`typescript\n// Afridi-GPT Engine\nexport function acknowledgeQuery(input: string) {\n  return { answer: "Processed by Afridi-GPT Pro", query: input };\n}\n\`\`\``;
     
     const chunks = responseText.match(/.{1,6}/g) || [responseText];
     let fullText = "";

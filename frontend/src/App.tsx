@@ -192,24 +192,24 @@ export const AppContent: React.FC = () => {
 
   const quickPrompts = [
     {
+      icon: <Sparkles className="h-4 w-4 text-purple-500" />,
+      title: "🎨 AI Art Generator",
+      prompt: "/image futuristic cybernetic AI city at sunset, highly detailed 8k digital art",
+    },
+    {
       icon: <Terminal className="h-4 w-4 text-emerald-500" />,
-      title: "Write React Code",
+      title: "💻 Write Fullstack Code",
       prompt: "Write a complete React component with TypeScript for a modern responsive dashboard",
     },
     {
       icon: <Globe className="h-4 w-4 text-cyan-500" />,
-      title: "Search Latest News",
-      prompt: "Search the web for the latest technology news today and summarize the key headlines",
+      title: "🌐 Live Web Search",
+      prompt: "Search the web for the latest technology news today and summarize key headlines",
     },
     {
-      icon: <Cpu className="h-4 w-4 text-purple-500" />,
-      title: "Explain Quantum Computing",
-      prompt: "Explain quantum computing and qubit superposition in simple terms with real-world analogies",
-    },
-    {
-      icon: <Zap className="h-4 w-4 text-amber-500" />,
-      title: "Optimize Python Script",
-      prompt: "How to optimize asynchronous API requests in Python using asyncio and aiohttp?",
+      icon: <Cpu className="h-4 w-4 text-amber-500" />,
+      title: "🧠 Quantum Physics",
+      prompt: "Explain quantum computing and qubit superposition with simple analogies",
     },
   ];
 
