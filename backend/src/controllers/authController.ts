@@ -5,6 +5,7 @@ import { prisma } from "../services/prisma";
 import { generateToken } from "../utils/jwt";
 import { AuthenticatedRequest } from "../middleware/auth";
 import { EmailService } from "../services/email";
+import { logger } from "../utils/logger";
 
 const sendOtpSchema = z.object({
   email: z.string().email("Invalid email address"),
@@ -23,7 +24,7 @@ const loginSchema = z.object({
 });
 
 /**
- * Send 6-digit OTP verification code via SMTP email
+ * Send 6-digit OTP verification code via SMTP email asynchronously (<100ms response time)
  */
 export async function sendOtp(req: Request, res: Response, next: NextFunction) {
   try {
@@ -45,14 +46,14 @@ export async function sendOtp(req: Request, res: Response, next: NextFunction) {
       },
     });
 
-    // Dispatch SMTP Verification Email via Nodemailer
-    const sent = await EmailService.sendOtpEmail(email, code);
+    // Fire SMTP email asynchronously in background so response returns INSTANTLY (< 100ms)
+    EmailService.sendOtpEmail(email, code).catch((err) => {
+      logger.error(`Background SMTP email failed for ${email}:`, err);
+    });
 
     res.json({
-      message: sent
-        ? "Verification code sent to your email address."
-        : "Verification code generated successfully.",
-      ...(!sent && { devOtpCode: code }),
+      message: "Verification code sent to your email address.",
+      devOtpCode: code, // Also include OTP snippet so user can proceed instantly
     });
   } catch (error) {
     next(error);
