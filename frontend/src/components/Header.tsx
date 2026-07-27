@@ -31,26 +31,26 @@ export const Header: React.FC<HeaderProps> = ({
   const currentPersonaObj = personas.find((p) => p.id === selectedPersona) || personas[0];
 
   return (
-    <header className="sticky top-0 z-30 flex h-16 items-center justify-between border-b border-slate-200/80 dark:border-chat-border-dark/80 bg-white/80 dark:bg-chat-bg-dark/80 px-4 sm:px-6 backdrop-blur-xl transition-all">
-      <div className="flex items-center gap-3">
+    <header className="sticky top-0 z-30 flex h-16 items-center justify-between border-b border-slate-200/80 dark:border-chat-border-dark/80 bg-white/80 dark:bg-chat-bg-dark/80 px-2.5 sm:px-6 backdrop-blur-xl transition-all">
+      <div className="flex items-center gap-2 sm:gap-3 overflow-hidden">
         <button
           onClick={onToggleSidebar}
-          className="p-2.5 rounded-xl text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800/80 transition-all hover:scale-105 active:scale-95"
+          className="p-2 sm:p-2.5 rounded-xl text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800/80 transition-all hover:scale-105 active:scale-95"
           title="Toggle sidebar"
         >
           <PanelLeft className="h-5 w-5" />
         </button>
 
         {/* Afridi-GPT Glowing Brand Badge */}
-        <div className="flex items-center gap-2.5 rounded-2xl border border-emerald-500/30 bg-gradient-to-r from-emerald-500/10 via-teal-500/10 to-cyan-500/10 px-3.5 py-1.5 shadow-sm backdrop-blur-md">
-          <div className="flex h-6 w-6 items-center justify-center rounded-lg bg-gradient-to-tr from-emerald-500 to-teal-400 text-white shadow-md">
-            <Zap className="h-3.5 w-3.5 fill-current" />
+        <div className="flex items-center gap-1.5 sm:gap-2.5 rounded-2xl border border-emerald-500/30 bg-gradient-to-r from-emerald-500/10 via-teal-500/10 to-cyan-500/10 px-2.5 sm:px-3.5 py-1.5 shadow-sm backdrop-blur-md">
+          <div className="flex h-5 w-5 sm:h-6 sm:w-6 items-center justify-center rounded-lg bg-gradient-to-tr from-emerald-500 to-teal-400 text-white shadow-md">
+            <Zap className="h-3 w-3 sm:h-3.5 sm:w-3.5 fill-current" />
           </div>
-          <span className="font-bold text-sm bg-gradient-to-r from-emerald-600 via-teal-600 to-cyan-600 dark:from-emerald-400 dark:via-teal-300 dark:to-cyan-400 bg-clip-text text-transparent tracking-wide">
+          <span className="font-bold text-xs sm:text-sm bg-gradient-to-r from-emerald-600 via-teal-600 to-cyan-600 dark:from-emerald-400 dark:via-teal-300 dark:to-cyan-400 bg-clip-text text-transparent tracking-wide truncate max-w-[90px] sm:max-w-none">
             Afridi-GPT
           </span>
           <span className="hidden sm:inline-block rounded-md bg-emerald-500/20 px-1.5 py-0.5 text-[10px] font-bold text-emerald-600 dark:text-emerald-400 uppercase tracking-wider">
-            v3.5 Pro
+            v3.5
           </span>
         </div>
 
@@ -58,7 +58,7 @@ export const Header: React.FC<HeaderProps> = ({
         <div className="relative">
           <button
             onClick={() => setShowPersonaMenu(!showPersonaMenu)}
-            className="flex items-center gap-1.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-100/80 dark:bg-slate-900/80 px-2.5 py-1.5 text-xs font-semibold text-slate-800 dark:text-slate-200 hover:bg-slate-200/80 dark:hover:bg-slate-800 transition-all"
+            className="flex items-center gap-1 sm:gap-1.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-100/80 dark:bg-slate-900/80 px-2 sm:px-2.5 py-1.5 text-[11px] sm:text-xs font-semibold text-slate-800 dark:text-slate-200 hover:bg-slate-200/80 dark:hover:bg-slate-800 transition-all"
           >
             {currentPersonaObj.icon}
             <span className="hidden md:inline">{currentPersonaObj.name}</span>
@@ -66,7 +66,7 @@ export const Header: React.FC<HeaderProps> = ({
           </button>
 
           {showPersonaMenu && (
-            <div className="absolute top-full left-0 mt-2 w-56 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-1.5 shadow-2xl z-50 animate-fadeIn">
+            <div className="absolute top-full left-0 mt-2 w-52 sm:w-56 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-1.5 shadow-2xl z-50 animate-fadeIn">
               <div className="px-2 py-1 text-[10px] font-bold uppercase tracking-wider text-slate-400">
                 Select AI Persona
               </div>
@@ -92,7 +92,7 @@ export const Header: React.FC<HeaderProps> = ({
         </div>
       </div>
 
-      <div className="flex items-center gap-2.5">
+      <div className="flex items-center gap-1.5 sm:gap-2.5">
         {/* Active Online Indicator */}
         <div className="hidden lg:flex items-center gap-2 text-xs font-semibold text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 px-3 py-1.5 rounded-full border border-emerald-500/20">
           <span className="relative flex h-2 w-2">
@@ -106,7 +106,7 @@ export const Header: React.FC<HeaderProps> = ({
         {onNewChat && (
           <button
             onClick={onNewChat}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold text-slate-700 dark:text-slate-200 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 transition-all active:scale-95"
+            className="flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-xl text-xs font-semibold text-slate-700 dark:text-slate-200 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 transition-all active:scale-95"
             title="Start new chat"
           >
             <RefreshCw className="h-3.5 w-3.5 text-chat-accent" />
@@ -118,7 +118,7 @@ export const Header: React.FC<HeaderProps> = ({
         {onExportChat && (
           <button
             onClick={onExportChat}
-            className="p-2 rounded-xl text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-all hover:scale-105 active:scale-95"
+            className="p-1.5 sm:p-2 rounded-xl text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-all hover:scale-105 active:scale-95"
             title="Export conversation history"
           >
             <Download className="h-4 w-4" />
@@ -128,7 +128,7 @@ export const Header: React.FC<HeaderProps> = ({
         {/* Dark / Light Mode Toggle */}
         <button
           onClick={toggleTheme}
-          className="p-2.5 rounded-xl text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-all hover:scale-105 active:scale-95"
+          className="p-1.5 sm:p-2.5 rounded-xl text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-all hover:scale-105 active:scale-95"
           title={`Switch to ${theme === "dark" ? "light" : "dark"} mode`}
         >
           {theme === "dark" ? (
