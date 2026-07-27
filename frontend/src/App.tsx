@@ -232,6 +232,11 @@ export const AppContent: React.FC = () => {
         setErrorNotice("Connection notice: " + errMessage);
         abortControllerRef.current = null;
       },
+      (newAiTitle) => {
+        setChats((prev) =>
+          prev.map((c) => (c.id === serverChatId ? { ...c, title: newAiTitle } : c))
+        );
+      },
       controller.signal
     );
   };

@@ -102,6 +102,7 @@ export async function streamMessageApi(
   onChunk: (chunk: string) => void,
   onDone: (msg: Message) => void,
   onError: (err: string) => void,
+  onTitleUpdate?: (title: string) => void,
   signal?: AbortSignal
 ) {
   try {
@@ -142,6 +143,9 @@ export async function streamMessageApi(
             const event = JSON.parse(jsonStr);
             if (event.type === "user_msg") {
               onUserMessage(event.data);
+              if (event.chatTitle && onTitleUpdate) {
+                onTitleUpdate(event.chatTitle);
+              }
             } else if (event.type === "chunk") {
               onChunk(event.content);
             } else if (event.type === "done") {

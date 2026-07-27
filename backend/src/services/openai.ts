@@ -11,6 +11,43 @@ const DEFAULT_GEMINI_KEY = ["AQ.Ab8RN6KOtvONlvTpQzizBvS6aoHY3QWBH60H", "8ZrxAVYL
 
 export class OpenAIService {
   /**
+   * Generates a concise 1 to 2 word topic title for a user prompt
+   */
+  static async generateTopicTitle(prompt: string): Promise<string> {
+    const geminiKey = (process.env.GEMINI_API_KEY && process.env.GEMINI_API_KEY.trim().length > 0)
+      ? process.env.GEMINI_API_KEY
+      : DEFAULT_GEMINI_KEY;
+
+    try {
+      const genAI = new GoogleGenerativeAI(geminiKey);
+      const model = genAI.getGenerativeModel({
+        model: "gemini-3.5-flash-lite",
+        systemInstruction: "You are an intelligent title generator. Output ONLY a concise 1 or 2 word topic title summarizing the user prompt (e.g. Quantum Physics, Chocolate Cake, React Component, Operating Systems). Do NOT use quotation marks, punctuation, or explanations. Maximum 2 words.",
+      });
+
+      const res = await model.generateContent(prompt);
+      const rawTitle = res.response.text().trim().replace(/^["']|["']$/g, "");
+      const words = rawTitle.split(/\s+/).slice(0, 2);
+      const cleanTitle = words.map((w) => w.charAt(0).toUpperCase() + w.slice(1)).join(" ");
+      if (cleanTitle && cleanTitle.length > 0) {
+        return cleanTitle;
+      }
+    } catch (e: any) {
+      logger.warn("AI title generation fallback active: " + e.message);
+    }
+
+    return this.fallbackTopicTitle(prompt);
+  }
+
+  private static fallbackTopicTitle(prompt: string): string {
+    const clean = prompt.replace(/[^\w\s]/gi, "").trim();
+    const words = clean.split(/\s+/).filter((w) => w.length > 2);
+    if (words.length === 0) return "New Chat";
+    if (words.length === 1) return words[0].charAt(0).toUpperCase() + words[0].slice(1).toLowerCase();
+    return words.slice(0, 2).map((w) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()).join(" ");
+  }
+
+  /**
    * Fast Ultra-Low Latency (<1s) Google Gemini API Streaming Engine
    */
   static async streamChatCompletion(
@@ -34,7 +71,6 @@ export class OpenAIService {
     try {
       const genAI = new GoogleGenerativeAI(geminiKey);
       
-      // Try ultra-fast low-latency model: gemini-3.5-flash-lite (< 1s first token response time)
       let modelName = "gemini-3.5-flash-lite";
 
       let model = genAI.getGenerativeModel({

@@ -171,10 +171,11 @@ export async function streamMessage(req: AuthenticatedRequest, res: Response, ne
     });
 
     if (!chat) {
+      const topicTitle = await OpenAIService.generateTopicTitle(content);
       chat = await prisma.chat.create({
         data: {
           id: chatId.startsWith("local-chat-") ? undefined : chatId,
-          title: content.trim().slice(0, 30) || "New Chat",
+          title: topicTitle,
           userId,
         },
         include: {
@@ -184,11 +185,10 @@ export async function streamMessage(req: AuthenticatedRequest, res: Response, ne
         },
       });
     } else if (chat.title === "New Chat" || !chat.title) {
-      // Auto-rename chat to user's first prompt snippet for permanent persistence!
-      const autoTitle = content.trim().slice(0, 30);
+      const topicTitle = await OpenAIService.generateTopicTitle(content);
       chat = await prisma.chat.update({
         where: { id: chat.id },
-        data: { title: autoTitle },
+        data: { title: topicTitle },
         include: {
           messages: {
             orderBy: { createdAt: "asc" },
@@ -234,7 +234,7 @@ Ensure 100% factual accuracy, clarity, and helpfulness matching or exceeding Cha
     }
 
     // Immediate confirmation frame
-    res.write(`data: ${JSON.stringify({ type: "user_msg", data: userMsg })}\n\n`);
+    res.write(`data: ${JSON.stringify({ type: "user_msg", data: userMsg, chatTitle: chat.title })}\n\n`);
 
     // Stream completion chunks immediately
     await OpenAIService.streamChatCompletion(
