@@ -1,89 +1,102 @@
 import { logger } from "../utils/logger";
 
-export interface SearchResult {
-  title: string;
-  snippet: string;
-  link?: string;
-}
-
 /**
- * Real-Time Web Search Service (DuckDuckGo + Google Search fallback)
+ * Multi-Engine Real-Time Live Web Search Service (Google News + Wikipedia + DuckDuckGo)
  */
-export async function searchWeb(query: string): Promise<string> {
+export async function searchWeb(query: string, fallbackSubject?: string): Promise<string> {
+  let searchQuery = query.trim();
+
+  // If query is vague like "search the web" or "search web", use fallback subject
+  if (/^search(\s+the\s+web|\s+web|\s+internet)?$/i.test(searchQuery)) {
+    searchQuery = fallbackSubject || "latest technology and world news";
+  }
+
   try {
-    const url = `https://html.duckduckgo.com/html/?q=${encodeURIComponent(query)}`;
-    const response = await fetch(url, {
-      headers: {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
-        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-        "Accept-Language": "en-US,en;q=0.5",
-      },
-    });
+    const results: string[] = [];
 
-    if (!response.ok) {
-      logger.warn(`Web search HTTP error: ${response.status}`);
-      return "";
-    }
+    // 1. Google News RSS for live breaking headlines
+    try {
+      const newsUrl = `https://news.google.com/rss/search?q=${encodeURIComponent(searchQuery)}&hl=en-US&gl=US&ceid=US:en`;
+      const newsRes = await fetch(newsUrl, {
+        headers: {
+          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+        },
+      });
 
-    const html = await response.text();
-    const results: SearchResult[] = [];
-
-    // Extract search result title and snippet matching DuckDuckGo HTML
-    const snippetRegex = /<a[^>]*class="result__snippet[^"]*"[^>]*>(.*?)<\/a>/gi;
-    const titleRegex = /<a[^>]*class="result__url"[^>]*>(.*?)<\/a>/gi;
-
-    let match;
-    const snippets: string[] = [];
-
-    while ((match = snippetRegex.exec(html)) !== null && snippets.length < 5) {
-      const text = match[1].replace(/<[^>]+>/g, "").replace(/\s+/g, " ").trim();
-      if (text && text.length > 15) {
-        snippets.push(text);
-      }
-    }
-
-    if (snippets.length === 0) {
-      // Fallback matching for td.result__snippet
-      const tdRegex = /<td[^>]*class="result__snippet"[^>]*>(.*?)<\/td>/gi;
-      while ((match = tdRegex.exec(html)) !== null && snippets.length < 5) {
-        const text = match[1].replace(/<[^>]+>/g, "").replace(/\s+/g, " ").trim();
-        if (text && text.length > 15) {
-          snippets.push(text);
+      if (newsRes.ok) {
+        const xml = await newsRes.text();
+        const titleRegex = /<title>(.*?)<\/title>/gi;
+        let match;
+        let count = 0;
+        while ((match = titleRegex.exec(xml)) !== null && count < 4) {
+          const clean = match[1].replace(/<!\[CDATA\[(.*?)\]\]>/gi, "$1").replace(/<[^>]+>/g, "").trim();
+          if (clean && !clean.toLowerCase().includes("google news")) {
+            results.push(`- Breaking News: ${clean}`);
+            count++;
+          }
         }
       }
+    } catch (e: any) {
+      logger.warn("Google News RSS search warning: " + e.message);
     }
 
-    if (snippets.length === 0) return "";
+    // 2. Wikipedia Search API for factual encyclopedic information
+    try {
+      const wikiUrl = `https://en.wikipedia.org/w/api.php?action=query&list=search&srsearch=${encodeURIComponent(searchQuery)}&format=json`;
+      const wikiRes = await fetch(wikiUrl);
+      if (wikiRes.ok) {
+        const json: any = await wikiRes.json();
+        const items = json?.query?.search || [];
+        for (const item of items.slice(0, 3)) {
+          const cleanSnippet = item.snippet
+            .replace(/<[^>]+>/g, "")
+            .replace(/&#039;/g, "'")
+            .replace(/&quot;/g, '"')
+            .trim();
+          if (cleanSnippet) {
+            results.push(`- Fact (${item.title}): ${cleanSnippet}`);
+          }
+        }
+      }
+    } catch (e: any) {
+      logger.warn("Wikipedia API search warning: " + e.message);
+    }
 
-    return snippets.map((s, idx) => `[Web Source ${idx + 1}]: ${s}`).join("\n\n");
+    // 3. DuckDuckGo HTML Search for live snippets
+    try {
+      const ddgUrl = `https://html.duckduckgo.com/html/?q=${encodeURIComponent(searchQuery)}`;
+      const ddgRes = await fetch(ddgUrl, {
+        headers: {
+          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+        },
+      });
+
+      if (ddgRes.ok) {
+        const html = await ddgRes.text();
+        const snippetRegex = /<a[^>]*class="result__snippet[^"]*"[^>]*>(.*?)<\/a>/gi;
+        let match;
+        let count = 0;
+        while ((match = snippetRegex.exec(html)) !== null && count < 3) {
+          const clean = match[1].replace(/<[^>]+>/g, "").trim();
+          if (clean && clean.length > 20) {
+            results.push(`- Web Snippet: ${clean}`);
+            count++;
+          }
+        }
+      }
+    } catch (e: any) {
+      logger.warn("DuckDuckGo search warning: " + e.message);
+    }
+
+    if (results.length === 0) return "";
+
+    return results.join("\n");
   } catch (err: any) {
-    logger.error("Web search exception: " + err.message);
+    logger.error("Web search error: " + err.message);
     return "";
   }
 }
 
-/**
- * Detects if a user query requires real-time live internet information
- */
 export function needsWebSearch(prompt: string): boolean {
-  const lower = prompt.toLowerCase();
-  const keywords = [
-    "latest",
-    "today",
-    "news",
-    "current",
-    "recent",
-    "now",
-    "who won",
-    "score",
-    "price",
-    "weather",
-    "2026",
-    "2025",
-    "release date",
-    "update",
-    "who is currently",
-    "what happened",
-  ];
-  return keywords.some((k) => lower.includes(k)) || prompt.trim().endsWith("?");
+  return true; // Always enable real-time internet search context for 100% up-to-date answers!
 }
