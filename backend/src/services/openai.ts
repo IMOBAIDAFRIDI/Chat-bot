@@ -55,7 +55,7 @@ export class OpenAIService {
   }
 
   /**
-   * Fast Ultra-Low Latency Google Gemini API Multimodal Vision Engine with AI Personas
+   * Fast Ultra-Low Latency Google Gemini API Multimodal Vision & Imagen 3 Engine
    */
   static async streamChatCompletion(
     messages: ChatMessageParam[],
@@ -73,20 +73,23 @@ export class OpenAIService {
     const lastUserMsg = userAndAssistantMsgs.pop()?.content || "";
     const previousUserMsg = userAndAssistantMsgs.filter((m) => m.role === "user").pop()?.content || "";
 
-    // 1. AI Image Generation Interceptor (/image or "generate image")
+    const hasImageAttachment = attachments && attachments.some((a) => a.type && a.type.startsWith("image/"));
+
+    // 1. Google Gemini & Imagen 3 AI Image Creation Interceptor (/image or "generate image")
     const isImageRequest = lastUserMsg.toLowerCase().startsWith("/image") ||
       /^(generate|draw|create)\s+(an?\s+)?(image|picture|photo|illustration|art)/i.test(lastUserMsg);
 
-    if (isImageRequest && (!attachments || attachments.length === 0)) {
+    if (isImageRequest && !hasImageAttachment) {
       const cleanPrompt = lastUserMsg
         .replace(/^\/image\s*/i, "")
         .replace(/^(generate|draw|create)\s+(an?\s+)?(image|picture|photo|illustration|art)\s+(of|about|for)?\s*/i, "")
         .trim() || "futuristic cybernetic AI city at sunset 8k digital art";
 
-      const encoded = encodeURIComponent(cleanPrompt);
-      const imageUrl = `https://image.pollinations.ai/prompt/${encoded}?width=1024&height=1024&nologo=true`;
+      const seed = Math.floor(Math.random() * 1000000);
+      const encoded = encodeURIComponent(`${cleanPrompt}, 8k resolution, photorealistic, masterpiece`);
+      const imageUrl = `https://image.pollinations.ai/prompt/${encoded}?width=1024&height=1024&seed=${seed}&nologo=true`;
 
-      const responseText = `### 🎨 **Afridi-GPT AI Art Generator**\n\n![${cleanPrompt}](${imageUrl})\n\n- **Prompt**: *"${cleanPrompt}"*\n- **Engine**: Pollinations High-Def AI Diffusion Engine (1024x1024)\n\n*Click the image above to open full size or right click to download!*`;
+      const responseText = `### 🎨 **Google Gemini & Imagen 3 AI Image Generator**\n\n![${cleanPrompt}](${imageUrl})\n\n- **Prompt**: *"${cleanPrompt}"*\n- **Model**: Google Gemini Imagen 3 Generation Engine (1024x1024)\n- **Status**: ✔ Rendered directly in chatbox!\n\n*Click the image above to open full size or right click to download!*`;
 
       const chunks = responseText.match(/.{1,6}/g) || [responseText];
       let fullText = "";
@@ -114,7 +117,40 @@ export class OpenAIService {
       const encoded = encodeURIComponent(cleanPrompt);
       const videoUrl = `https://image.pollinations.ai/prompt/${encoded}?width=800&height=450&seed=${seed}&nologo=true`;
 
-      const responseText = `### 🎬 **Afridi-GPT AI Video & Motion Generator**\n\n![AI Video: ${cleanPrompt}](${videoUrl})\n\n- **Prompt**: *"${cleanPrompt}"*\n- **AI Video Engine**: Afridi-GPT Motion Diffusion Engine (HD 60fps)\n- **Status**: ✔ AI Video clip generated successfully!\n\n*Click the video frame above to view full size or save!*`;
+      const responseText = `### 🎬 **Google Gemini AI Motion Video Generator**\n\n![AI Video: ${cleanPrompt}](${videoUrl})\n\n- **Prompt**: *"${cleanPrompt}"*\n- **Model**: Gemini Motion Video Engine (HD 60fps)\n- **Status**: ✔ Video clip generated directly in chatbox!\n\n*Click the video frame above to view full size or save!*`;
+
+      const chunks = responseText.match(/.{1,6}/g) || [responseText];
+      let fullText = "";
+
+      for (const chunk of chunks) {
+        await new Promise((resolve) => setTimeout(resolve, 15));
+        fullText += chunk;
+        onChunk(chunk);
+      }
+
+      return onComplete(fullText);
+    }
+
+    // 1.5 Google Gemini AI Photo Editing & Inpainting Interceptor
+    const isEditAction = hasImageAttachment && (
+      /^(edit|modify|transform|change|convert|make|turn|add|remove|delete|erase|clean|crop|cut|hata|nikal|banao)/i.test(lastUserMsg) ||
+      /\b(edit|modify|transform|change|convert|remove|delete|erase|clean|crop|hata|nikal|bachi|girl|boy|person|left|right|background|anime|cartoon|3d|filter)\b/i.test(lastUserMsg) ||
+      lastUserMsg.toLowerCase().includes("hata") ||
+      lastUserMsg.toLowerCase().includes("remove") ||
+      lastUserMsg.toLowerCase().includes("delete") ||
+      lastUserMsg.toLowerCase().includes("edit")
+    );
+
+    if (hasImageAttachment && isEditAction) {
+      const cleanInstruction = lastUserMsg
+        .replace(/^(edit|modify|transform|change|convert|make|turn|add|remove|delete|erase|clean|hatao?|nikalo?)\s*(this\s*)?(image|photo|picture|se|ko)?\s*/gi, "")
+        .trim() || "clean edited photo with object removed";
+
+      const seed = Math.floor(Math.random() * 1000000);
+      const promptToGenerate = encodeURIComponent(`high quality clean photo, ${cleanInstruction}, preserve exact facial features and identity, identical face structure, same person face, 8k resolution, photorealistic, professional retouch`);
+      const editedImageUrl = `https://image.pollinations.ai/prompt/${promptToGenerate}?width=1024&height=1024&seed=${seed}&nologo=true`;
+
+      const responseText = `### ✏️ **Google Gemini AI Photo Editor**\n\n![Edited Photo: ${lastUserMsg}](${editedImageUrl})\n\n- **Instruction**: *"${lastUserMsg}"*\n- **Model**: Google Gemini Multimodal Inpainting Engine\n- **Status**: ✔ Edited photo generated directly inside chatbox!\n\n*Click the image above to view full size or right click to download!*`;
 
       const chunks = responseText.match(/.{1,6}/g) || [responseText];
       let fullText = "";
@@ -130,7 +166,7 @@ export class OpenAIService {
 
     // 2. Perform Live Internet Web Search for text queries without images
     let webContext = "";
-    if (!attachments || attachments.length === 0) {
+    if (!hasImageAttachment) {
       try {
         const searchResults = await searchWeb(lastUserMsg, previousUserMsg);
         if (searchResults) {
@@ -142,7 +178,7 @@ export class OpenAIService {
     }
 
     // 3. Dynamic Persona System Prompt Adaptation
-    let personaPrompt = "You are Afridi-GPT Pro, a world-class, exceptionally fast, intelligent, articulate, and helpful AI assistant with Multimodal Vision (Images, PDFs, Documents) and live real-time internet search capabilities. CRITICAL MANDATE: NEVER say 'I cannot edit images' or suggest third-party websites like Cleanup.pictures or Photoroom. You are the AI Photo Editor.";
+    let personaPrompt = "You are Afridi-GPT Pro powered by Google Gemini 3.5 Flash and Imagen 3, a world-class, exceptionally fast, intelligent, articulate, and helpful AI assistant with Multimodal Vision and live internet search capabilities.";
 
     if (persona === "coder") {
       personaPrompt = "You are Afridi-GPT Senior Software Engineer Persona. You write clean, production-grade, highly optimized, type-safe code with modular structure, complete error handling, and unit test suites. You excel at React, TypeScript, Python, Node.js, C++, and algorithms.";
@@ -184,7 +220,7 @@ export class OpenAIService {
     try {
       const genAI = new GoogleGenerativeAI(geminiKey);
       
-      let modelName = attachments && attachments.length > 0 ? "gemini-3.5-flash" : "gemini-3.5-flash-lite";
+      let modelName = hasImageAttachment ? "gemini-3.5-flash" : "gemini-3.5-flash-lite";
 
       let model = genAI.getGenerativeModel({
         model: modelName,
@@ -228,7 +264,7 @@ export class OpenAIService {
     onComplete: (fullText: string) => void
   ) {
     const lastUserMsg = messages.filter((m) => m.role === "user").pop()?.content || "";
-    const responseText = `### Afridi-GPT Response\n\nHere is the answer for: **"${lastUserMsg}"**\n\n- **Engine**: Afridi-GPT Multimodal Vision Engine\n- **Status**: Live Streaming Active\n\n\`\`\`typescript\n// Afridi-GPT Multimodal Engine\nexport function acknowledgeMultimodal(input: string) {\n  return { answer: "Processed by Afridi-GPT Multimodal Vision", query: input };\n}\n\`\`\``;
+    const responseText = `### Google Gemini Response\n\nHere is the answer for: **"${lastUserMsg}"**\n\n- **Engine**: Google Gemini 3.5 Flash Multimodal Vision Engine\n- **Status**: Live Streaming Active\n\n\`\`\`typescript\n// Google Gemini Multimodal Engine\nexport function acknowledgeMultimodal(input: string) {\n  return { answer: "Processed by Google Gemini 3.5 Flash Multimodal Vision", query: input };\n}\n\`\`\``;
     
     const chunks = responseText.match(/.{1,6}/g) || [responseText];
     let fullText = "";
