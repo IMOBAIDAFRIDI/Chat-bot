@@ -24,7 +24,7 @@ const loginSchema = z.object({
 });
 
 /**
- * Send 6-digit OTP verification code via SMTP email asynchronously (<100ms response time)
+ * Send 6-digit OTP verification code via SMTP email
  */
 export async function sendOtp(req: Request, res: Response, next: NextFunction) {
   try {
@@ -46,13 +46,15 @@ export async function sendOtp(req: Request, res: Response, next: NextFunction) {
       },
     });
 
-    // Fire SMTP email asynchronously in background so response returns INSTANTLY (< 100ms)
-    EmailService.sendOtpEmail(email, code).catch((err) => {
-      logger.error(`Background SMTP email failed for ${email}:`, err);
-    });
+    // Send SMTP email and verify delivery success
+    const sent = await EmailService.sendOtpEmail(email, code);
+
+    if (!sent) {
+      return res.status(500).json({ error: "Failed to deliver email. Please check your email address and try again." });
+    }
 
     res.json({
-      message: "Verification code sent to your email address. Please check your Inbox.",
+      message: "Verification code sent to your email address. Please check your Inbox / Spam folder.",
     });
   } catch (error) {
     next(error);
