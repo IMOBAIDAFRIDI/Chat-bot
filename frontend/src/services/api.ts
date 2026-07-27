@@ -1,4 +1,4 @@
-import { Chat, Message, User } from "../types";
+import { Chat, Message, User, Attachment } from "../types";
 
 const rawBase = (import.meta as any).env?.VITE_API_BASE_URL || "";
 const API_BASE = rawBase ? `${rawBase.replace(/\/$/, "")}/api` : "/api";
@@ -133,6 +133,7 @@ export async function fetchMessagesApi(chatId: string): Promise<Message[]> {
 export async function streamMessageApi(
   chatId: string,
   content: string,
+  attachments: Attachment[] | undefined,
   onUserMessage: (msg: Message) => void,
   onChunk: (chunk: string) => void,
   onDone: (msg: Message) => void,
@@ -147,7 +148,7 @@ export async function streamMessageApi(
         "Content-Type": "application/json",
         ...getAuthHeader(),
       },
-      body: JSON.stringify({ content }),
+      body: JSON.stringify({ content, attachments }),
       signal,
     });
 

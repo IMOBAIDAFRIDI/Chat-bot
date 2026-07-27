@@ -1,8 +1,9 @@
 import React, { useState, useRef, useEffect } from "react";
-import { Send, Square, Mic, MicOff, Paperclip, Image as ImageIcon, X, Globe, Sparkles } from "lucide-react";
+import { Send, Square, Mic, MicOff, Paperclip, Image as ImageIcon, FileText, X, Globe, Sparkles } from "lucide-react";
+import { Attachment } from "../types";
 
 interface ChatInputProps {
-  onSend: (message: string) => void;
+  onSend: (message: string, attachments?: Attachment[]) => void;
   onStop: () => void;
   isStreaming: boolean;
   disabled?: boolean;
@@ -17,7 +18,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({
   const [input, setInput] = useState("");
   const [isListening, setIsListening] = useState(false);
   const [isImageMode, setIsImageMode] = useState(false);
-  const [attachedFile, setAttachedFile] = useState<{ name: string; content: string } | null>(null);
+  const [attachments, setAttachments] = useState<Attachment[]>([]);
 
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -68,38 +69,74 @@ export const ChatInput: React.FC<ChatInputProps> = ({
     }
   };
 
-  // Handle File Upload (.txt, .py, .js, .json, .csv, .md)
+  // Handle Multi-file Upload (Images, PDFs, Documents, Code)
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
 
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      const text = event.target?.result as string;
-      setAttachedFile({ name: file.name, content: text });
-    };
-    reader.readAsText(file);
+    Array.from(files).forEach((file) => {
+      const isImage = file.type.startsWith("image/");
+      const isPdf = file.type === "application/pdf" || file.name.endsWith(".pdf");
+
+      const reader = new FileReader();
+
+      if (isImage || isPdf) {
+        // Read as Data URL / Base64
+        reader.onload = (event) => {
+          const dataUrl = event.target?.result as string;
+          // Extract base64 part
+          const base64Data = dataUrl.split(",")[1] || dataUrl;
+          const mimeType = isImage ? file.type : "application/pdf";
+
+          setAttachments((prev) => [
+            ...prev,
+            {
+              name: file.name,
+              type: mimeType,
+              data: base64Data,
+              url: isImage ? dataUrl : undefined,
+            },
+          ]);
+        };
+        reader.readAsDataURL(file);
+      } else {
+        // Read text / code file
+        reader.onload = (event) => {
+          const text = event.target?.result as string;
+          setAttachments((prev) => [
+            ...prev,
+            {
+              name: file.name,
+              type: "text/plain",
+              data: text,
+            },
+          ]);
+        };
+        reader.readAsText(file);
+      }
+    });
+
+    if (fileInputRef.current) fileInputRef.current.value = "";
+  };
+
+  const removeAttachment = (index: number) => {
+    setAttachments((prev) => prev.filter((_, i) => i !== index));
   };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if ((!input.trim() && !attachedFile) || isStreaming || disabled) return;
+    if ((!input.trim() && attachments.length === 0) || isStreaming || disabled) return;
 
     let fullPrompt = input.trim();
 
-    // If file is attached, prepend document content
-    if (attachedFile) {
-      fullPrompt = `[ATTACHED FILE: ${attachedFile.name}]\n\`\`\`\n${attachedFile.content}\n\`\`\`\n\n${fullPrompt || "Please analyze, explain, or process the attached document above."}`;
-    }
-
-    // If Image Mode is toggled, prepend /image command
+    // If Image Mode is toggled and prompt doesn't start with /image
     if (isImageMode && !fullPrompt.toLowerCase().startsWith("/image")) {
       fullPrompt = `/image ${fullPrompt}`;
     }
 
-    onSend(fullPrompt);
+    onSend(fullPrompt, attachments.length > 0 ? attachments : undefined);
     setInput("");
-    setAttachedFile(null);
+    setAttachments([]);
     setIsImageMode(false);
     if (textareaRef.current) {
       textareaRef.current.style.height = "auto";
@@ -116,20 +153,50 @@ export const ChatInput: React.FC<ChatInputProps> = ({
   return (
     <div className="sticky bottom-0 z-20 w-full bg-gradient-to-t from-white via-white/95 to-transparent dark:from-chat-bg-dark dark:via-chat-bg-dark/95 p-4 sm:p-6 backdrop-blur-md">
       <div className="mx-auto max-w-4xl">
-        {/* Attached File Preview Badge */}
-        {attachedFile && (
-          <div className="mb-2 flex items-center justify-between gap-2 rounded-xl bg-slate-100 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 px-3 py-1.5 text-xs text-slate-700 dark:text-slate-200">
-            <div className="flex items-center gap-2 truncate">
-              <Paperclip className="h-3.5 w-3.5 text-chat-accent flex-shrink-0" />
-              <span className="font-semibold truncate">{attachedFile.name}</span>
-              <span className="text-[10px] text-slate-400">({attachedFile.content.length} chars)</span>
-            </div>
-            <button
-              onClick={() => setAttachedFile(null)}
-              className="text-slate-400 hover:text-rose-500"
-            >
-              <X className="h-3.5 w-3.5" />
-            </button>
+        {/* Attached Files & Image Thumbnail Preview Bar */}
+        {attachments.length > 0 && (
+          <div className="mb-3 flex flex-wrap gap-2">
+            {attachments.map((att, idx) => (
+              <div
+                key={idx}
+                className="relative group flex items-center gap-2 rounded-2xl bg-slate-100 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 p-1.5 pr-3 text-xs text-slate-700 dark:text-slate-200 shadow-sm"
+              >
+                {att.type.startsWith("image/") && att.url ? (
+                  <img
+                    src={att.url}
+                    alt={att.name}
+                    className="h-10 w-10 rounded-xl object-cover border border-slate-300 dark:border-slate-600"
+                  />
+                ) : att.type === "application/pdf" ? (
+                  <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-rose-500/10 text-rose-500 font-bold text-[10px]">
+                    PDF
+                  </div>
+                ) : (
+                  <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-500/10 text-emerald-500">
+                    <FileText className="h-5 w-5" />
+                  </div>
+                )}
+
+                <div className="flex flex-col truncate max-w-[140px]">
+                  <span className="font-semibold truncate">{att.name}</span>
+                  <span className="text-[10px] text-slate-400">
+                    {att.type.startsWith("image/")
+                      ? "Image attached"
+                      : att.type === "application/pdf"
+                      ? "PDF document"
+                      : "Text document"}
+                  </span>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => removeAttachment(idx)}
+                  className="p-1 rounded-full text-slate-400 hover:text-rose-500 hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors"
+                >
+                  <X className="h-3.5 w-3.5" />
+                </button>
+              </div>
+            ))}
           </div>
         )}
 
@@ -137,23 +204,24 @@ export const ChatInput: React.FC<ChatInputProps> = ({
           onSubmit={handleSubmit}
           className="relative flex items-center rounded-3xl border border-slate-300/80 dark:border-chat-border-dark bg-white dark:bg-chat-card-dark shadow-xl transition-all focus-within:border-chat-accent focus-within:ring-4 focus-within:ring-chat-accent/15"
         >
-          {/* Hidden File Input */}
+          {/* Hidden Multi-file Input (Images, PDFs, Text, Code) */}
           <input
             type="file"
             ref={fileInputRef}
             onChange={handleFileUpload}
-            accept=".txt,.js,.ts,.jsx,.tsx,.py,.json,.csv,.md,.html,.css"
+            multiple
+            accept="image/*,.pdf,.txt,.js,.ts,.jsx,.tsx,.py,.json,.csv,.md,.html,.css"
             className="hidden"
           />
 
           {/* Mode Switchers Left Bar */}
           <div className="flex items-center gap-1 pl-3">
-            {/* Attach Document Button */}
+            {/* Attach File/Image/PDF Button */}
             <button
               type="button"
               onClick={() => fileInputRef.current?.click()}
               className="p-2 rounded-2xl text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-all"
-              title="Attach text file or code"
+              title="Attach Images, PDFs, or Code documents"
             >
               <Paperclip className="h-4 w-4" />
             </button>
@@ -167,7 +235,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({
                   ? "bg-purple-500 text-white shadow-md shadow-purple-500/30"
                   : "text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800"
               }`}
-              title={isImageMode ? "Image Generation Active" : "Toggle AI Image Generator"}
+              title={isImageMode ? "AI Art Generator Active" : "Toggle AI Art Generator"}
             >
               <ImageIcon className="h-4 w-4" />
             </button>
@@ -179,7 +247,13 @@ export const ChatInput: React.FC<ChatInputProps> = ({
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={handleKeyDown}
-            placeholder={isImageMode ? "Describe the AI Image you want to generate..." : "Message Afridi-GPT or type /image..."}
+            placeholder={
+              isImageMode
+                ? "Describe the AI image you want to generate..."
+                : attachments.length > 0
+                ? "Ask a question about your attached Image/PDF..."
+                : "Message Afridi-GPT (Upload Images, PDFs or type /image)..."
+            }
             disabled={disabled}
             className="w-full resize-none bg-transparent py-4 pl-3 pr-24 text-sm text-slate-900 dark:text-slate-100 placeholder-slate-400 focus:outline-none disabled:opacity-50 max-h-48"
           />
@@ -212,7 +286,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({
             ) : (
               <button
                 type="submit"
-                disabled={(!input.trim() && !attachedFile) || disabled}
+                disabled={(!input.trim() && attachments.length === 0) || disabled}
                 className="flex h-9 w-9 items-center justify-center rounded-2xl bg-gradient-to-tr from-emerald-500 via-teal-500 to-cyan-500 text-white shadow-lg shadow-emerald-500/25 transition-all hover:scale-105 active:scale-95 disabled:opacity-30 disabled:hover:scale-100 disabled:shadow-none"
                 title="Send message"
               >
@@ -223,7 +297,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({
         </form>
 
         <p className="mt-2 text-center text-[11px] font-medium text-slate-400 dark:text-slate-500">
-          Afridi-GPT v3.5 Pro • Real-Time Web Search & AI Art Generator
+          Afridi-GPT v3.5 Pro • Multimodal Vision (Images & PDFs) & Real-Time AI Engine
         </p>
       </div>
     </div>

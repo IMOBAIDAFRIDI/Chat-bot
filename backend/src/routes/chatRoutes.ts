@@ -1,8 +1,8 @@
 import { Router } from "express";
 import {
   createChat,
-  getChats,
-  getChatMessages,
+  fetchChats,
+  fetchMessages,
   renameChat,
   deleteChat,
   streamMessage,
@@ -15,8 +15,8 @@ const router = Router();
 router.use(authenticateJWT);
 
 router.post("/", apiRateLimiter, createChat);
-router.get("/", getChats);
-router.get("/:chatId/messages", getChatMessages);
+router.get("/", fetchChats);
+router.get("/:chatId/messages", fetchMessages);
 router.patch("/:chatId", renameChat);
 router.delete("/:chatId", deleteChat);
 router.post("/:chatId/stream", streamMessage);

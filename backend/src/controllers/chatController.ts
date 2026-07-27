@@ -1,7 +1,7 @@
 import { Response, NextFunction } from "express";
 import { z } from "zod";
 import { prisma } from "../services/prisma";
-import { OpenAIService, ChatMessageParam } from "../services/openai";
+import { OpenAIService, ChatMessageParam, AttachmentParam } from "../services/openai";
 import { AuthenticatedRequest } from "../middleware/auth";
 import { logger } from "../utils/logger";
 
@@ -13,8 +13,15 @@ const renameChatSchema = z.object({
   title: z.string().min(1, "Title is required"),
 });
 
+const attachmentSchema = z.object({
+  name: z.string().optional(),
+  type: z.string(),
+  data: z.string(),
+});
+
 const sendMessageSchema = z.object({
   content: z.string().min(1, "Message content is required"),
+  attachments: z.array(attachmentSchema).optional(),
 });
 
 async function ensureUserExists(userId: string, email: string) {
@@ -30,8 +37,25 @@ async function ensureUserExists(userId: string, email: string) {
         },
       });
     }
-  } catch (e) {
-    // Ignore duplicate constraint during concurrent guest requests
+  } catch (err: any) {
+    logger.warn("ensureUserExists warning: " + err.message);
+  }
+}
+
+export async function fetchChats(req: AuthenticatedRequest, res: Response, next: NextFunction) {
+  try {
+    const userId = req.user!.userId;
+    const email = req.user!.email;
+    await ensureUserExists(userId, email);
+
+    const chats = await prisma.chat.findMany({
+      where: { userId },
+      orderBy: { updatedAt: "desc" },
+    });
+
+    res.json({ chats });
+  } catch (error) {
+    next(error);
   }
 }
 
@@ -45,59 +69,12 @@ export async function createChat(req: AuthenticatedRequest, res: Response, next:
 
     const chat = await prisma.chat.create({
       data: {
-        title: title || "New Chat",
         userId,
+        title: title || "New Chat",
       },
     });
 
     res.status(201).json({ chat });
-  } catch (error) {
-    next(error);
-  }
-}
-
-export async function getChats(req: AuthenticatedRequest, res: Response, next: NextFunction) {
-  try {
-    const userId = req.user!.userId;
-    const email = req.user!.email;
-    await ensureUserExists(userId, email);
-
-    const chats = await prisma.chat.findMany({
-      where: { userId },
-      orderBy: { updatedAt: "desc" },
-      select: {
-        id: true,
-        title: true,
-        createdAt: true,
-        updatedAt: true,
-      },
-    });
-
-    res.json({ chats });
-  } catch (error) {
-    next(error);
-  }
-}
-
-export async function getChatMessages(req: AuthenticatedRequest, res: Response, next: NextFunction) {
-  try {
-    const userId = req.user!.userId;
-    const { chatId } = req.params;
-
-    const chat = await prisma.chat.findFirst({
-      where: { id: chatId, userId },
-      include: {
-        messages: {
-          orderBy: { createdAt: "asc" },
-        },
-      },
-    });
-
-    if (!chat) {
-      return res.status(404).json({ error: "Chat session not found" });
-    }
-
-    res.json({ chat, messages: chat.messages });
   } catch (error) {
     next(error);
   }
@@ -151,6 +128,30 @@ export async function deleteChat(req: AuthenticatedRequest, res: Response, next:
   }
 }
 
+export async function fetchMessages(req: AuthenticatedRequest, res: Response, next: NextFunction) {
+  try {
+    const userId = req.user!.userId;
+    const { chatId } = req.params;
+
+    const chat = await prisma.chat.findFirst({
+      where: { id: chatId, userId },
+      include: {
+        messages: {
+          orderBy: { createdAt: "asc" },
+        },
+      },
+    });
+
+    if (!chat) {
+      return res.status(404).json({ error: "Chat session not found" });
+    }
+
+    res.json({ messages: chat.messages });
+  } catch (error) {
+    next(error);
+  }
+}
+
 export async function streamMessage(req: AuthenticatedRequest, res: Response, next: NextFunction) {
   try {
     const userId = req.user!.userId;
@@ -158,7 +159,7 @@ export async function streamMessage(req: AuthenticatedRequest, res: Response, ne
     await ensureUserExists(userId, email);
 
     const { chatId } = req.params;
-    const { content } = sendMessageSchema.parse(req.body);
+    const { content, attachments } = sendMessageSchema.parse(req.body);
 
     // Fast Chat lookup or dynamic creation
     let chat = await prisma.chat.findFirst({
@@ -197,7 +198,7 @@ export async function streamMessage(req: AuthenticatedRequest, res: Response, ne
       });
     }
 
-    // Save user message asynchronously
+    // Save user message
     const userMsg = await prisma.message.create({
       data: {
         chatId: chat.id,
@@ -206,62 +207,91 @@ export async function streamMessage(req: AuthenticatedRequest, res: Response, ne
       },
     });
 
-    // Expert System Prompt for ChatGPT level 100% accuracy & reasoning
+    // Expert System Prompt for Afridi-GPT Multimodal Accuracy
     const messageHistory: ChatMessageParam[] = [
       {
         role: "system",
-        content: `You are GPT-5.4 Mini, an advanced, highly intelligent, precise, and articulate AI assistant created by OpenAI.
+        content: `You are Afridi-GPT, an advanced, highly intelligent, precise, and articulate AI assistant.
 You provide exceptionally detailed, accurate, step-by-step, and correct answers.
-You excel at software engineering, programming, math, logic, complex reasoning, science, writing, and general knowledge.
+You excel at Multimodal Vision (analyzing Images & PDF documents), software engineering, programming, math, logic, complex reasoning, science, writing, and general knowledge.
 Always format code using clean, syntax-highlighted Markdown code blocks with exact language labels.
-Ensure 100% factual accuracy, clarity, and helpfulness matching or exceeding ChatGPT.`,
+Ensure 100% factual accuracy, clarity, and helpfulness.`,
       },
       ...chat.messages.map((m) => ({
         role: m.role as "user" | "assistant" | "system",
         content: m.content,
       })),
-      { role: "user", content },
+      {
+        role: "user",
+        content,
+      },
     ];
 
-    // Set Ultra-Fast Streaming & Anti-Proxy-Buffering Headers for Render/Cloudflare/Nginx
+    // Prepare SSE headers
     res.setHeader("Content-Type", "text/event-stream");
-    res.setHeader("Cache-Control", "no-cache, no-transform");
+    res.setHeader("Cache-Control", "no-cache");
     res.setHeader("Connection", "keep-alive");
-    res.setHeader("X-Accel-Buffering", "no"); // Disable proxy buffering for instant <1s token delivery!
+    res.setHeader("X-Accel-Buffering", "no");
 
-    if (typeof (res as any).flushHeaders === "function") {
-      (res as any).flushHeaders();
-    }
+    // Emit initial user_msg event with title update
+    res.write(
+      `data: ${JSON.stringify({
+        type: "user_msg",
+        data: userMsg,
+        chatTitle: chat.title,
+      })}\n\n`
+    );
 
-    // Immediate confirmation frame
-    res.write(`data: ${JSON.stringify({ type: "user_msg", data: userMsg, chatTitle: chat.title })}\n\n`);
+    let assistantFullText = "";
 
-    // Stream completion chunks immediately
     await OpenAIService.streamChatCompletion(
       messageHistory,
-      (chunk) => {
-        res.write(`data: ${JSON.stringify({ type: "chunk", content: chunk })}\n\n`);
-        if (typeof (res as any).flush === "function") {
-          (res as any).flush();
-        }
+      attachments as AttachmentParam[] | undefined,
+      (chunk: string) => {
+        assistantFullText += chunk;
+        res.write(
+          `data: ${JSON.stringify({
+            type: "chunk",
+            content: chunk,
+          })}\n\n`
+        );
       },
-      (err) => {
-        logger.error("Streaming error in controller:", err);
-        res.write(`data: ${JSON.stringify({ type: "error", error: "Streaming failed: " + err.message })}\n\n`);
+      (err: any) => {
+        logger.error("SSE Streaming Error: " + (err.message || err));
+        res.write(
+          `data: ${JSON.stringify({
+            type: "error",
+            error: err.message || "Streaming failed",
+          })}\n\n`
+        );
         res.end();
       },
-      async (fullText) => {
-        // Save assistant response to DB
-        const assistantMsg = await prisma.message.create({
-          data: {
-            chatId: chat.id,
-            role: "assistant",
-            content: fullText,
-          },
-        });
+      async (completedText: string) => {
+        try {
+          const assistantMsg = await prisma.message.create({
+            data: {
+              chatId: chat.id,
+              role: "assistant",
+              content: completedText || assistantFullText,
+            },
+          });
 
-        res.write(`data: ${JSON.stringify({ type: "done", data: assistantMsg })}\n\n`);
-        res.end();
+          await prisma.chat.update({
+            where: { id: chat.id },
+            data: { updatedAt: new Date() },
+          });
+
+          res.write(
+            `data: ${JSON.stringify({
+              type: "done",
+              data: assistantMsg,
+            })}\n\n`
+          );
+        } catch (dbErr: any) {
+          logger.error("Failed to save assistant message: " + dbErr.message);
+        } finally {
+          res.end();
+        }
       }
     );
   } catch (error) {

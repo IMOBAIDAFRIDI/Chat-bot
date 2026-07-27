@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from "react";
 import { Bot, Sparkles, Code, Cpu, ShieldCheck, AlertCircle, RefreshCw, Zap, Globe, MessageSquare, Terminal } from "lucide-react";
-import { Chat, Message } from "./types";
+import { Chat, Message, Attachment } from "./types";
 import {
   createChatApi,
   deleteChatApi,
@@ -108,7 +108,7 @@ export const AppContent: React.FC = () => {
     }
   };
 
-  const handleSendMessage = async (text: string) => {
+  const handleSendMessage = async (text: string, attachments?: Attachment[]) => {
     let targetChatId = activeChatId;
 
     // Auto-create chat if none selected
@@ -129,7 +129,8 @@ export const AppContent: React.FC = () => {
       id: `temp-${Date.now()}`,
       chatId: targetChatId,
       role: "user",
-      content: text,
+      content: text || (attachments && attachments.length > 0 ? `[Attached ${attachments.length} file(s)]` : ""),
+      attachments,
       createdAt: new Date().toISOString(),
     };
 
@@ -142,9 +143,10 @@ export const AppContent: React.FC = () => {
 
     await streamMessageApi(
       targetChatId,
-      text,
+      text || (attachments && attachments.length > 0 ? `Please analyze the attached document / image.` : ""),
+      attachments,
       (userMsg) => {
-        setMessages((prev) => prev.map((m) => (m.id === tempUserMsg.id ? userMsg : m)));
+        setMessages((prev) => prev.map((m) => (m.id === tempUserMsg.id ? { ...userMsg, attachments } : m)));
       },
       (chunk) => {
         setStreamingText((prev) => prev + chunk);

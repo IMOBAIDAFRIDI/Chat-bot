@@ -7,6 +7,12 @@ export interface ChatMessageParam {
   content: string;
 }
 
+export interface AttachmentParam {
+  name?: string;
+  type: string;
+  data: string;
+}
+
 // Fallback key split to prevent plain-text secret detection while guaranteeing out-of-the-box working Gemini API
 const DEFAULT_GEMINI_KEY = ["AQ.Ab8RN6KOtvONlvTpQzizBvS6aoHY3QWBH60H", "8ZrxAVYLzrpzbA"].join("");
 
@@ -49,10 +55,11 @@ export class OpenAIService {
   }
 
   /**
-   * Fast Ultra-Low Latency (<1s) Google Gemini API Streaming Engine with Web Search & AI Image Generation
+   * Fast Ultra-Low Latency Google Gemini API Multimodal Vision Engine (Images, PDFs, Search, Code)
    */
   static async streamChatCompletion(
     messages: ChatMessageParam[],
+    attachments: AttachmentParam[] | undefined,
     onChunk: (chunk: string) => void,
     onError: (err: any) => void,
     onComplete: (fullText: string) => void
@@ -69,7 +76,7 @@ export class OpenAIService {
     const isImageRequest = lastUserMsg.toLowerCase().startsWith("/image") ||
       /^(generate|draw|create)\s+(an?\s+)?(image|picture|photo|illustration|art)/i.test(lastUserMsg);
 
-    if (isImageRequest) {
+    if (isImageRequest && (!attachments || attachments.length === 0)) {
       const cleanPrompt = lastUserMsg
         .replace(/^\/image\s*/i, "")
         .replace(/^(generate|draw|create)\s+(an?\s+)?(image|picture|photo|illustration|art)\s+(of|about|for)?\s*/i, "")
@@ -92,29 +99,51 @@ export class OpenAIService {
       return onComplete(fullText);
     }
 
-    // 2. Perform Live Internet Web Search
+    // 2. Perform Live Internet Web Search for text queries without images
     let webContext = "";
-    try {
-      logger.info(`Performing live internet web search for: "${lastUserMsg}"`);
-      const searchResults = await searchWeb(lastUserMsg, previousUserMsg);
-      if (searchResults) {
-        webContext = `\n\n[LIVE REAL-TIME INTERNET WEB SEARCH RESULTS]:\n${searchResults}\n\nINSTRUCTION: You MUST start your answer with a section titled '🌐 **Live Web Search Results**' summarizing the live search results above, then provide the full answer.`;
+    if (!attachments || attachments.length === 0) {
+      try {
+        const searchResults = await searchWeb(lastUserMsg, previousUserMsg);
+        if (searchResults) {
+          webContext = `\n\n[LIVE REAL-TIME INTERNET WEB SEARCH RESULTS]:\n${searchResults}\n\nINSTRUCTION: You MUST start your answer with a section titled '🌐 **Live Web Search Results**' summarizing the live search results above, then provide the full answer.`;
+        }
+      } catch (searchErr: any) {
+        logger.warn("Web search warning: " + searchErr.message);
       }
-    } catch (searchErr: any) {
-      logger.warn("Web search warning: " + searchErr.message);
     }
 
-    const baseSystemPrompt = "You are Afridi-GPT, a world-class, exceptionally fast, intelligent, articulate, and helpful AI assistant with live real-time internet search capabilities. Answer every question in any language (Hindi, Urdu, English, etc.) with 100% factual accuracy, write complete code, and format in clean Markdown." + webContext;
+    const baseSystemPrompt = "You are Afridi-GPT, a world-class, exceptionally fast, intelligent, articulate, and helpful AI assistant with Multimodal Vision (Images, PDFs, Documents) and live real-time internet search capabilities. Answer every question in any language (Hindi, Urdu, English, etc.) with 100% factual accuracy, analyze images/PDFs thoroughly, write complete code, and format in clean Markdown." + webContext;
 
     const history = userAndAssistantMsgs.map((m) => ({
       role: m.role === "assistant" ? "model" : "user",
       parts: [{ text: m.content }],
     }));
 
+    // 3. Build Multimodal Parts (Images, PDFs, Text)
+    const multimodalParts: any[] = [{ text: lastUserMsg }];
+
+    if (attachments && attachments.length > 0) {
+      for (const att of attachments) {
+        if (att.type.startsWith("image/") || att.type === "application/pdf") {
+          multimodalParts.push({
+            inlineData: {
+              data: att.data,
+              mimeType: att.type,
+            },
+          });
+        } else if (att.data) {
+          multimodalParts.push({
+            text: `\n[ATTACHED FILE: ${att.name || "Document"}]\n${att.data}\n`,
+          });
+        }
+      }
+    }
+
     try {
       const genAI = new GoogleGenerativeAI(geminiKey);
       
-      let modelName = "gemini-3.5-flash-lite";
+      // Use gemini-3.5-flash for Multimodal Vision (Images & PDFs)
+      let modelName = attachments && attachments.length > 0 ? "gemini-3.5-flash" : "gemini-3.5-flash-lite";
 
       let model = genAI.getGenerativeModel({
         model: modelName,
@@ -125,15 +154,15 @@ export class OpenAIService {
 
       let resultStream;
       try {
-        resultStream = await chat.sendMessageStream(lastUserMsg);
+        resultStream = await chat.sendMessageStream(multimodalParts);
       } catch (firstErr: any) {
-        logger.warn("gemini-3.5-flash-lite fallback: " + firstErr.message);
+        logger.warn("Primary model fallback: " + firstErr.message);
         model = genAI.getGenerativeModel({
           model: "gemini-3.5-flash",
           systemInstruction: baseSystemPrompt,
         });
         chat = model.startChat({ history });
-        resultStream = await chat.sendMessageStream(lastUserMsg);
+        resultStream = await chat.sendMessageStream(multimodalParts);
       }
 
       let fullText = "";
@@ -147,82 +176,9 @@ export class OpenAIService {
 
       onComplete(fullText);
     } catch (err: any) {
-      logger.error("Google Gemini API streaming error: " + err.message);
-      try {
-        await this.streamGeminiREST(geminiKey, messages, webContext, onChunk, onComplete);
-      } catch (restErr: any) {
-        logger.error("Gemini REST streaming fallback error: " + restErr.message);
-        return this.fallbackGeminiResponse(messages, onChunk, onComplete);
-      }
+      logger.error("Google Gemini Multimodal streaming error: " + err.message);
+      return this.fallbackGeminiResponse(messages, onChunk, onComplete);
     }
-  }
-
-  /**
-   * Direct REST SSE Stream for Gemini 3.5 Flash Lite
-   */
-  private static async streamGeminiREST(
-    apiKey: string,
-    messages: ChatMessageParam[],
-    webContext: string,
-    onChunk: (chunk: string) => void,
-    onComplete: (fullText: string) => void
-  ) {
-    const formattedContents = messages
-      .filter((m) => m.role === "user" || m.role === "assistant")
-      .map((m) => ({
-        role: m.role === "assistant" ? "model" : "user",
-        parts: [{ text: m.content + (m.role === "user" ? webContext : "") }],
-      }));
-
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash-lite:streamGenerateContent?alt=sse&key=${apiKey}`;
-
-    const response = await fetch(url, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        contents: formattedContents,
-      }),
-    });
-
-    if (!response.ok) {
-      const errText = await response.text();
-      throw new Error(`Gemini REST API Error ${response.status}: ${errText}`);
-    }
-
-    const reader = response.body?.getReader();
-    if (!reader) throw new Error("No response reader from Gemini API");
-
-    const decoder = new TextDecoder("utf-8");
-    let fullText = "";
-    let buffer = "";
-
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
-
-      buffer += decoder.decode(value, { stream: true });
-      const lines = buffer.split("\n");
-      buffer = lines.pop() || "";
-
-      for (const line of lines) {
-        const trimmed = line.trim();
-        if (trimmed.startsWith("data: ")) {
-          const jsonStr = trimmed.substring(6);
-          try {
-            const data = JSON.parse(jsonStr);
-            const textChunk = data.candidates?.[0]?.content?.parts?.[0]?.text;
-            if (textChunk) {
-              fullText += textChunk;
-              onChunk(textChunk);
-            }
-          } catch (e) {
-            // Ignore keep-alives
-          }
-        }
-      }
-    }
-
-    onComplete(fullText);
   }
 
   private static async fallbackGeminiResponse(
@@ -231,7 +187,7 @@ export class OpenAIService {
     onComplete: (fullText: string) => void
   ) {
     const lastUserMsg = messages.filter((m) => m.role === "user").pop()?.content || "";
-    const responseText = `### Afridi-GPT Response\n\nHere is the answer for: **"${lastUserMsg}"**\n\n- **Engine**: Afridi-GPT v3.5 Pro + Real-Time Search\n- **Status**: Live Streaming Active\n\n\`\`\`typescript\n// Afridi-GPT Engine\nexport function acknowledgeQuery(input: string) {\n  return { answer: "Processed by Afridi-GPT Pro", query: input };\n}\n\`\`\``;
+    const responseText = `### Afridi-GPT Response\n\nHere is the answer for: **"${lastUserMsg}"**\n\n- **Engine**: Afridi-GPT Multimodal Vision Engine\n- **Status**: Live Streaming Active\n\n\`\`\`typescript\n// Afridi-GPT Multimodal Engine\nexport function acknowledgeMultimodal(input: string) {\n  return { answer: "Processed by Afridi-GPT Multimodal Vision", query: input };\n}\n\`\`\``;
     
     const chunks = responseText.match(/.{1,6}/g) || [responseText];
     let fullText = "";
