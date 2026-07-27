@@ -147,7 +147,7 @@ export class OpenAIService {
         .trim() || "professionally edited photo with object removed";
 
       const seed = Math.floor(Math.random() * 1000000);
-      const promptToGenerate = encodeURIComponent(`high quality clean photo, ${cleanInstruction}, isolated subject, 8k resolution, photorealistic, professional retouch`);
+      const promptToGenerate = encodeURIComponent(`high quality clean photo, ${cleanInstruction}, preserve exact original facial features and identity, identical face structure, same person face, 8k resolution, photorealistic, professional retouch`);
       const editedImageUrl = `https://image.pollinations.ai/prompt/${promptToGenerate}?width=1024&height=1024&seed=${seed}&nologo=true`;
 
       const responseText = `### ✏️ **Afridi-GPT Gemini AI Photo Editor**\n\n![Edited Photo: ${lastUserMsg}](${editedImageUrl})\n\n- **Request**: *"${lastUserMsg}"*\n- **AI Action**: Object Removal & Inpainting Retouch Applied\n- **Status**: ✔ Image edited successfully inside chatbox!\n\n*Click the image above to view full size or right click to download!*`;
